@@ -49,6 +49,10 @@ final class ReadingSessionManager {
         guard let session = currentSession else { return }
 
         session.end(chapterIndex: chapterIndex)
+
+        // Update reading streak
+        updateReadingStreak(sessionDate: session.startedAt)
+
         try? modelContext.save()
 
         currentSession = nil
@@ -101,6 +105,23 @@ final class ReadingSessionManager {
     private func stopUpdateTimer() {
         updateTimer?.invalidate()
         updateTimer = nil
+    }
+
+    private func updateReadingStreak(sessionDate: Date) {
+        // Fetch or create reading streak
+        let descriptor = FetchDescriptor<ReadingStreak>()
+        let streaks = (try? modelContext.fetch(descriptor)) ?? []
+
+        let streak: ReadingStreak
+        if let existingStreak = streaks.first {
+            streak = existingStreak
+        } else {
+            streak = ReadingStreak()
+            modelContext.insert(streak)
+        }
+
+        // Update the streak
+        streak.updateStreak(sessionDate: sessionDate)
     }
 
     // MARK: - Statistics Queries

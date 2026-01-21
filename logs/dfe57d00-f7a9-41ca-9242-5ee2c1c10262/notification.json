@@ -1,0 +1,10 @@
+[
+  {
+    "session_id": "dfe57d00-f7a9-41ca-9242-5ee2c1c10262",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/dfe57d00-f7a9-41ca-9242-5ee2c1c10262.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your attention",
+    "notification_type": "permission_prompt"
+  }
+]

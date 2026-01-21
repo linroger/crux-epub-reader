@@ -22,6 +22,8 @@ targets:
     platform: [iOS, macOS]
     sources:
       - path: Shared
+        excludes:
+          - Views/BookMetadataEditorView.swift
       - path: Resources/Reader
         buildPhase: resources
       - path: iOS
@@ -37,6 +39,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.crux.app
         INFOPLIST_FILE: Resources/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION: YES
       configs:
         debug:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG

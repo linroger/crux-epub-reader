@@ -1,5 +1,8 @@
 import SwiftUI
 import SwiftData
+#if os(iOS)
+import UniformTypeIdentifiers
+#endif
 
 struct ContentView: View {
     @Environment(AppState.self) private var appState
@@ -7,8 +10,11 @@ struct ContentView: View {
     @Query(sort: \StoredBook.lastOpenedAt, order: .reverse) private var storedBooks: [StoredBook]
 
     @State private var selectedBook: Book?
-    @State private var error: Error?
     @State private var isLoading = false
+    @State private var errorHandler = ErrorHandler.shared
+    #if os(iOS)
+    @State private var showingDocumentPicker = false
+    #endif
 
     private let parser = EPUBParser()
     private let storage = BookStorage.shared
@@ -40,6 +46,9 @@ struct ContentView: View {
                     onAddBook: { openFile() },
                     onDeleteBook: { book in
                         deleteBook(book)
+                    },
+                    onImportBook: { url in
+                        await importBook(from: url)
                     }
                 )
             }
@@ -57,13 +66,7 @@ struct ContentView: View {
                 appState.showOpenPanel = false
             }
         }
-        .alert("Error", isPresented: .constant(error != nil)) {
-            Button("OK") { error = nil }
-        } message: {
-            if let error {
-                Text(error.localizedDescription)
-            }
-        }
+        .withFeedback()
         .overlay {
             if isLoading {
                 ProgressView("Loading...")
@@ -71,8 +74,18 @@ struct ContentView: View {
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
             }
         }
+        #if os(iOS)
+        .sheet(isPresented: $showingDocumentPicker) {
+            DocumentPicker { url in
+                Task { await importBook(from: url) }
+            }
+        }
+        #endif
         .task {
             await recoverOrphanedBooks()
+
+            // Initialize search history service
+            appState.searchHistoryService.configure(modelContext: modelContext)
         }
     }
 
@@ -96,6 +109,8 @@ struct ContentView: View {
         if panel.runModal() == .OK, let url = panel.url {
             Task { await importBook(from: url) }
         }
+        #elseif os(iOS)
+        showingDocumentPicker = true
         #endif
     }
 
@@ -121,6 +136,7 @@ struct ContentView: View {
             storedBook.language = book.metadata.language
             storedBook.publisher = book.metadata.publisher
             storedBook.bookDescription = book.metadata.description
+            storedBook.coverImageData = book.coverImage  // Cache cover image
             if let pubDate = book.metadata.publicationDate {
                 storedBook.publicationYear = Calendar.current.component(.year, from: pubDate)
             }
@@ -133,8 +149,14 @@ struct ContentView: View {
 
             // Select the new book
             appState.selectedBookId = bookId
+
+            // Show success message
+            errorHandler.showSuccess("Book imported successfully")
         } catch {
-            self.error = error
+            errorHandler.handle(
+                AppError.epubParsingFailed(error.localizedDescription),
+                context: "importBook"
+            )
         }
     }
 
@@ -153,7 +175,10 @@ struct ContentView: View {
 
             selectedBook = book
         } catch {
-            self.error = error
+            errorHandler.handle(
+                AppError.epubParsingFailed(error.localizedDescription),
+                context: "loadBook"
+            )
         }
     }
 
@@ -196,6 +221,42 @@ struct ContentView: View {
         }
     }
 }
+
+// MARK: - iOS Document Picker
+
+#if os(iOS)
+import UIKit
+
+struct DocumentPicker: UIViewControllerRepresentable {
+    let onPick: (URL) -> Void
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.epub])
+        picker.allowsMultipleSelection = false
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onPick: onPick)
+    }
+
+    class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let onPick: (URL) -> Void
+
+        init(onPick: @escaping (URL) -> Void) {
+            self.onPick = onPick
+        }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            guard let url = urls.first else { return }
+            onPick(url)
+        }
+    }
+}
+#endif
 
 #Preview {
     ContentView()

@@ -13,9 +13,15 @@ struct CruxApp: App {
             // Initialize SwiftData container with all models
             modelContainer = try ModelContainer(
                 for: StoredBook.self,
+                    BookCollection.self,
                     AppSettings.self,
                     AIProviderConfig.self,
-                    ReadingSession.self
+                    ReadingSession.self,
+                    ReadingGoal.self,
+                    GoalAchievement.self,
+                    ReadingStreak.self,
+                    Achievement.self,
+                    SearchHistoryItem.self
             )
         } catch {
             fatalError("Failed to initialize SwiftData: \(error)")
@@ -52,6 +58,16 @@ struct CruxApp: App {
                 }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
 
+                Button("Reading Goals") {
+                    openWindow(id: "reading-goals")
+                }
+                .keyboardShortcut("g", modifiers: [.command, .shift])
+
+                Button("Streaks & Achievements") {
+                    openWindow(id: "streaks")
+                }
+                .keyboardShortcut("a", modifiers: [.command, .shift])
+
                 Button("Keyboard Shortcuts") {
                     openWindow(id: "keyboard-shortcuts", value: true)
                 }
@@ -71,6 +87,20 @@ struct CruxApp: App {
         // Statistics window
         WindowGroup(id: "statistics") {
             StatisticsView()
+                .modelContainer(modelContainer)
+        }
+        .defaultSize(width: 700, height: 600)
+
+        // Reading goals window
+        WindowGroup(id: "reading-goals") {
+            ReadingGoalsView()
+                .modelContainer(modelContainer)
+        }
+        .defaultSize(width: 600, height: 500)
+
+        // Streaks window
+        WindowGroup(id: "streaks") {
+            StreaksView()
                 .modelContainer(modelContainer)
         }
         .defaultSize(width: 700, height: 600)
@@ -97,4 +127,5 @@ struct CruxApp: App {
 final class AppState {
     var showOpenPanel = false
     var selectedBookId: UUID?
+    var searchHistoryService = SearchHistoryService()
 }

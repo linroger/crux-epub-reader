@@ -1,0 +1,310 @@
+[
+  {
+    "session_id": "dfe57d00-f7a9-41ca-9242-5ee2c1c10262",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/dfe57d00-f7a9-41ca-9242-5ee2c1c10262.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PostToolUse",
+    "tool_name": "TodoWrite",
+    "tool_input": {
+      "todos": [
+        {
+          "content": "Research what 'contextify-query' refers to in the context of this project",
+          "status": "in_progress",
+          "activeForm": "Researching what 'contextify-query' refers to"
+        },
+        {
+          "content": "Determine if this is an MCP server, Claude Code plugin, or project-specific tool",
+          "status": "pending",
+          "activeForm": "Determining the type of tool/plugin"
+        },
+        {
+          "content": "Install or configure the plugin/tool as requested",
+          "status": "pending",
+          "activeForm": "Installing or configuring the plugin/tool"
+        }
+      ]
+    },
+    "tool_response": {
+      "oldTodos": [],
+      "newTodos": [
+        {
+          "content": "Research what 'contextify-query' refers to in the context of this project",
+          "status": "in_progress",
+          "activeForm": "Researching what 'contextify-query' refers to"
+        },
+        {
+          "content": "Determine if this is an MCP server, Claude Code plugin, or project-specific tool",
+          "status": "pending",
+          "activeForm": "Determining the type of tool/plugin"
+        },
+        {
+          "content": "Install or configure the plugin/tool as requested",
+          "status": "pending",
+          "activeForm": "Installing or configuring the plugin/tool"
+        }
+      ]
+    },
+    "tool_use_id": "toolu_011VqaCo1YrJjtdLnJYjzHFC"
+  },
+  {
+    "session_id": "dfe57d00-f7a9-41ca-9242-5ee2c1c10262",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/dfe57d00-f7a9-41ca-9242-5ee2c1c10262.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PostToolUse",
+    "tool_name": "Glob",
+    "tool_input": {
+      "pattern": "**/.mcp.json"
+    },
+    "tool_response": {
+      "filenames": [],
+      "durationMs": 253,
+      "numFiles": 0,
+      "truncated": false
+    },
+    "tool_use_id": "toolu_01AHK4Q8afD7NYRVaA7WgCfC"
+  },
+  {
+    "session_id": "dfe57d00-f7a9-41ca-9242-5ee2c1c10262",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/dfe57d00-f7a9-41ca-9242-5ee2c1c10262.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PostToolUse",
+    "tool_name": "Glob",
+    "tool_input": {
+      "pattern": "**/*contextify*"
+    },
+    "tool_response": {
+      "filenames": [],
+      "durationMs": 216,
+      "numFiles": 0,
+      "truncated": false
+    },
+    "tool_use_id": "toolu_016VtJDxat8iij6yAc5J3RmB"
+  },
+  {
+    "session_id": "dfe57d00-f7a9-41ca-9242-5ee2c1c10262",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/dfe57d00-f7a9-41ca-9242-5ee2c1c10262.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PostToolUse",
+    "tool_name": "Glob",
+    "tool_input": {
+      "pattern": "**/*plugin*"
+    },
+    "tool_response": {
+      "filenames": [],
+      "durationMs": 230,
+      "numFiles": 0,
+      "truncated": false
+    },
+    "tool_use_id": "toolu_017bNhTZGAF3vPb87DWFBh7X"
+  },
+  {
+    "session_id": "dfe57d00-f7a9-41ca-9242-5ee2c1c10262",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/dfe57d00-f7a9-41ca-9242-5ee2c1c10262.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PostToolUse",
+    "tool_name": "Glob",
+    "tool_input": {
+      "pattern": "**/package.json"
+    },
+    "tool_response": {
+      "filenames": [],
+      "durationMs": 243,
+      "numFiles": 0,
+      "truncated": false
+    },
+    "tool_use_id": "toolu_012nfpuGWC8YLN7zH23ACxEr"
+  },
+  {
+    "session_id": "dfe57d00-f7a9-41ca-9242-5ee2c1c10262",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/dfe57d00-f7a9-41ca-9242-5ee2c1c10262.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PostToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "ls -la ~/.claude",
+      "description": "Check Claude Code configuration directory"
+    },
+    "tool_response": {
+      "stdout": "total 2792\ndrwxrwxrwx@   56 rogerlin  staff    1792 Jan 21 01:45 .\ndrwxr-x---@  352 rogerlin  staff   11264 Jan 21 01:45 ..\ndrwxr-xr-x     4 rogerlin  staff     128 Dec 21 12:10 .claude\n-rwxr-xr-x@    1 rogerlin  staff   34820 Jan 20 18:15 .DS_Store\ndrwxr-xr-x    20 rogerlin  staff     640 Jan 14 22:09 .git\n-rw-r-----@    1 rogerlin  staff      56 Nov 21 05:41 .gitattributes\n-rw-r--r--@    1 rogerlin  staff     194 Jan 13 18:53 .gitignore\n-rwxr-xr-x@    1 rogerlin  staff     131 Jan  5 22:12 .mcp.json\ndrwxr-xr-x@   17 rogerlin  staff     544 Jan  3 16:09 AdditionalDocumentation\ndrwxr-xr-x    15 rogerlin  staff     480 Jan  9 02:25 agents\n-rw-r--r--@    1 rogerlin  staff    5162 Jan 14 23:50 agents_mail+beads.md\n-rw-r--r--@    1 rogerlin  staff   19174 Jan 15 00:30 AGENTS-proactive-section.md\n-rw-r--r--@    1 rogerlin  staff    7257 Jan  7 00:46 AGENTS.md\n-rw-r--r--@    1 rogerlin  staff       6 Dec 26 15:08 axiom-version\ndrwxr-xr-x@    3 rogerlin  staff      96 Jan  8 07:32 cache\n-rw-------@    1 rogerlin  staff    5948 Jan  6 20:31 CLAUDE-beads.md\n-rw-------@    1 rogerlin  staff    4634 Jan  6 20:32 CLAUDE-code-review.md\n-rw-------@    1 rogerlin  staff   21043 Jan  6 20:30 CLAUDE-EXTRACTION-PLAN.md\n-rw-------@    1 rogerlin  staff    8356 Jan  6 20:35 CLAUDE-long-running.md\n-rw-------@    1 rogerlin  staff    6802 Jan  6 20:36 CLAUDE-multi-agent.md\n-rw-------@    1 rogerlin  staff   31062 Jan  6 21:47 CLAUDE-proactive-usage.md\ndrwxr-xr-x@   19 rogerlin  staff     608 Jan 14 21:21 claude-statusline\n-rwxr-xr-x@    1 rogerlin  staff   61117 Jan 15 00:52 CLAUDE.md\n-rwxr-xr-x@    1 rogerlin  staff   37179 Jan  6 21:50 CLAUDE.md.backup-20260106-215017\ndrwxr-xr-x    27 rogerlin  staff     864 Jan  1 18:22 commands\ndrwxr-xr-x     5 rogerlin  staff     160 Nov 23 18:22 data\ndrwx------  9434 rogerlin  staff  301888 Jan 21 01:45 debug\ndrwxr-xr-x     7 rogerlin  staff     224 Jan  6 23:34 docs\ndrwxr-xr-x     2 rogerlin  staff      64 Nov 25 05:24 downloads\ndrwx------    58 rogerlin  staff    1856 Jan 20 20:09 file-history\n-rw-r--r--@    1 rogerlin  staff  890180 Jan 21 01:45 history.jsonl\ndrwxr-xr-x@   21 rogerlin  staff     672 Jan  1 18:24 hooks\ndrwxr-xr-x@    2 rogerlin  staff      64 Jan 19 00:56 ide\ndrwxr-xr-x    32 rogerlin  staff    1024 Jan 14 22:07 logs\n-rw-r--r--@    1 rogerlin  staff   64140 Jan  3 01:10 macOS-Style-Guide.md\n-rw-------@    1 rogerlin  staff   29915 Dec 21 12:15 MCP_COMPREHENSIVE_GUIDE.md\n-rw-r--r--     1 rogerlin  staff   23438 Jun 25  2025 newtools.md\ndrwxr-xr-x    20 rogerlin  staff     640 Jan 17 03:41 paste-cache\ndrwxr-xr-x     2 rogerlin  staff      64 Jan 21 01:45 plans\ndrwxr-xr-x     9 rogerlin  staff     288 Jan  1 18:26 plugins\ndrwxr-xr-x@   24 rogerlin  staff     768 Jan  1 18:49 project-rules\ndrwxrwxrwx@  268 rogerlin  staff    8576 Jan 21 01:45 projects\ndrwxr-xr-x   227 rogerlin  staff    7264 Jan 21 01:17 session-env\n-rw-r--r--     1 rogerlin  staff    9118 Jan 14 01:44 settings.json\n-rw-------@    1 rogerlin  staff    9115 Jan 14 01:44 settings.json.backup\n-rw-r--r--     1 rogerlin  staff     152 Nov 29 08:08 settings.local.json\ndrwxr-xr-x  4269 rogerlin  staff  136608 Jan 21 01:46 shell-snapshots\ndrwxr-xr-x@   26 rogerlin  staff     832 Jan 14 08:50 skills\n-rw-------@    1 rogerlin  staff   34149 Dec 21 12:15 slash-commands-research-report.md\n-rw-------     1 rogerlin  staff   46819 Jan 20 18:06 stats-cache.json\ndrwxrwxrwx    17 rogerlin  staff     544 Jan 21 00:54 statsig\ndrwxr-xr-x    37 rogerlin  staff    1184 Dec  7 12:07 swift-documentation\ndrwxr-xr-x@  104 rogerlin  staff    3328 Jan 21 00:35 telemetry\ndrwxrwxrwx  6908 rogerlin  staff  221056 Jan 21 01:45 todos\n-rw-r--r--     1 rogerlin  staff   10327 Jun 25  2025 todos.md\ndrwxr-xr-x    13 rogerlin  staff     416 Dec 26 00:37 transcripts",
+      "stderr": "",
+      "interrupted": false,
+      "isImage": false
+    },
+    "tool_use_id": "toolu_016wjFamstpTdip3wsFw5wPR"
+  },
+  {
+    "session_id": "dfe57d00-f7a9-41ca-9242-5ee2c1c10262",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/dfe57d00-f7a9-41ca-9242-5ee2c1c10262.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PostToolUse",
+    "tool_name": "Read",
+    "tool_input": {
+      "file_path": "/Users/rogerlin/.claude/MCP_COMPREHENSIVE_GUIDE.md"
+    },
+    "tool_response": {
+      "type": "text",
+      "file": {
+        "filePath": "/Users/rogerlin/.claude/MCP_COMPREHENSIVE_GUIDE.md",
+        "content": "# Comprehensive Guide to Model Context Protocol (MCP) in Claude Code\n\n**Last Updated**: 2025-12-20\n**Research Source**: Anthropic Official Documentation\n\n---\n\n## Table of Contents\n\n1. [What is MCP?](#what-is-mcp)\n2. [Core Concepts and Architecture](#core-concepts-and-architecture)\n3. [MCP in Claude Code](#mcp-in-claude-code)\n4. [MCP Server Configuration](#mcp-server-configuration)\n5. [Transport Types](#transport-types)\n6. [Installation Methods](#installation-methods)\n7. [Configuration Scopes](#configuration-scopes)\n8. [Using MCP Tools, Resources, and Prompts](#using-mcp-tools-resources-and-prompts)\n9. [Security and Authentication](#security-and-authentication)\n10. [Best Practices](#best-practices)\n11. [Enterprise Configuration](#enterprise-configuration)\n12. [Troubleshooting](#troubleshooting)\n\n---\n\n## What is MCP?\n\n**Model Context Protocol (MCP)** is an open-source standard for connecting AI applications to external systems. Think of MCP like a **USB-C port for AI applications**\u2014just as USB-C provides a standardized way to connect electronic devices, MCP provides a standardized way to connect AI applications to external systems.\n\n### What MCP Enables\n\nMCP allows AI applications like Claude Code to connect to:\n\n- **Data sources**: Local files, databases, APIs\n- **Tools**: Search engines, calculators, code analyzers\n- **Workflows**: Specialized prompts, automation scripts\n\n### Key Benefits by Role\n\n| Role | Benefits |\n|------|----------|\n| **Developers** | Reduces development time and complexity when building or integrating with AI applications |\n| **AI Applications** | Access to an ecosystem of data sources, tools, and apps that enhance capabilities |\n| **End Users** | More capable AI applications that can access data and take actions on behalf of users |\n\n### Real-World Use Cases\n\nWith MCP servers connected, you can ask Claude Code to:\n\n1. **Implement features from issue trackers**\n   _\"Add the feature described in JIRA issue ENG-4521 and create a PR on GitHub.\"_\n\n2. **Analyze monitoring data**\n   _\"Check Sentry and Statsig to check the usage of the feature described in ENG-4521.\"_\n\n3. **Query databases**\n   _\"Find emails of 10 random users who used feature ENG-4521, based on our PostgreSQL database.\"_\n\n4. **Integrate designs**\n   _\"Update our standard email template based on the new Figma designs that were posted in Slack.\"_\n\n5. **Automate workflows**\n   _\"Create Gmail drafts inviting these 10 users to a feedback session about the new feature.\"_\n\n---\n\n## Core Concepts and Architecture\n\n### MCP Components\n\nMCP consists of three main components:\n\n1. **MCP Servers**: Expose data, tools, and workflows to AI applications\n2. **MCP Clients**: AI applications (like Claude Code) that connect to servers\n3. **MCP Protocol**: Standardized communication format between clients and servers\n\n### Architecture Overview\n\n```\n\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502  Claude Code    \u2502 \u25c4\u2500\u2500\u2500 MCP Client\n\u2502  (AI App)       \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n         \u2502\n         \u2502 MCP Protocol\n         \u2502\n    \u250c\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n    \u2502                                 \u2502\n\u250c\u2500\u2500\u2500\u25bc\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510              \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u25bc\u2500\u2500\u2500\u2510\n\u2502 MCP Server \u2502              \u2502 MCP Server \u2502\n\u2502 (GitHub)   \u2502              \u2502 (Database) \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518              \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n```\n\n---\n\n## MCP in Claude Code\n\nClaude Code can connect to hundreds of external tools and data sources through MCP servers.\n\n### Popular MCP Servers\n\nHere are commonly used MCP servers for Claude Code:\n\n| Server | Purpose | Example Use |\n|--------|---------|-------------|\n| **GitHub** | Code repository access | Create PRs, review code, manage issues |\n| **Sentry** | Error monitoring | Analyze error logs, track bugs |\n| **PostgreSQL** | Database queries | Query user data, analytics |\n| **Notion** | Document access | Fetch specifications, requirements |\n| **Slack** | Team communication | Read messages, send notifications |\n| **Figma** | Design integration | Access design files, export assets |\n| **JIRA** | Issue tracking | Fetch tickets, update status |\n| **Gmail** | Email automation | Draft emails, send messages |\n\n**Security Note**: Use third-party MCP servers at your own risk. Anthropic has not verified the correctness or security of all servers. Trust only servers from verified sources, and be especially careful with servers that could fetch untrusted content (prompt injection risk).\n\n### Finding More Servers\n\n- Browse hundreds of MCP servers on [GitHub](https://github.com/topics/mcp-server)\n- Build your own using the [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk)\n\n---\n\n## MCP Server Configuration\n\n### Configuration File: `.mcp.json`\n\nMCP servers are configured in a `.mcp.json` file, which can exist at different scopes (local, project, user). The file structure follows this format:\n\n```json\n{\n  \"mcpServers\": {\n    \"server-name\": {\n      \"transport\": \"http|sse|stdio\",\n      \"url\": \"https://api.example.com/mcp\",  // for http/sse\n      \"command\": \"node\",                      // for stdio\n      \"args\": [\"path/to/server.js\"],         // for stdio\n      \"env\": {                                // optional\n        \"API_KEY\": \"${API_KEY}\"\n      },\n      \"headers\": {                            // optional (http/sse)\n        \"Authorization\": \"Bearer ${TOKEN}\"\n      }\n    }\n  }\n}\n```\n\n### Environment Variable Expansion\n\nClaude Code supports environment variable expansion in `.mcp.json`:\n\n```json\n{\n  \"mcpServers\": {\n    \"secure-api\": {\n      \"transport\": \"http\",\n      \"url\": \"${API_URL}\",\n      \"headers\": {\n        \"Authorization\": \"Bearer ${API_TOKEN}\"\n      }\n    }\n  }\n}\n```\n\n**Supported formats**:\n- `${VAR_NAME}` - Standard format\n- `$VAR_NAME` - Alternative format\n\n**Practical Example**:\n\n```json\n{\n  \"mcpServers\": {\n    \"github\": {\n      \"transport\": \"http\",\n      \"url\": \"https://api.github.com/mcp\",\n      \"headers\": {\n        \"Authorization\": \"token ${GITHUB_TOKEN}\"\n      }\n    },\n    \"database\": {\n      \"transport\": \"stdio\",\n      \"command\": \"npx\",\n      \"args\": [\"-y\", \"@modelcontextprotocol/server-postgres\"],\n      \"env\": {\n        \"POSTGRES_URL\": \"${DATABASE_URL}\"\n      }\n    }\n  }\n}\n```\n\n---\n\n## Transport Types\n\nMCP supports three transport mechanisms for server communication:\n\n### 1. HTTP Transport (Recommended)\n\n**Use case**: Remote cloud-based services\n**Advantages**: Most widely supported, scalable, RESTful\n**Best for**: Production services, public APIs\n\n**Configuration**:\n```json\n{\n  \"mcpServers\": {\n    \"notion\": {\n      \"transport\": \"http\",\n      \"url\": \"https://mcp.notion.com/mcp\",\n      \"headers\": {\n        \"Authorization\": \"Bearer ${NOTION_TOKEN}\"\n      }\n    }\n  }\n}\n```\n\n### 2. SSE Transport (Deprecated)\n\n**Use case**: Server-Sent Events streaming\n**Status**: **DEPRECATED** - Use HTTP instead where available\n**Advantages**: Real-time streaming capabilities\n\n**Configuration**:\n```json\n{\n  \"mcpServers\": {\n    \"asana\": {\n      \"transport\": \"sse\",\n      \"url\": \"https://mcp.asana.com/sse\",\n      \"headers\": {\n        \"X-API-Key\": \"${ASANA_KEY}\"\n      }\n    }\n  }\n}\n```\n\n**Note**: SSE transport is being phased out in favor of HTTP.\n\n### 3. stdio Transport (Local Servers)\n\n**Use case**: Local process-based servers\n**Advantages**: Direct process communication, lower latency\n**Best for**: Local tools, development environments\n\n**Configuration**:\n```json\n{\n  \"mcpServers\": {\n    \"postgres\": {\n      \"transport\": \"stdio\",\n      \"command\": \"npx\",\n      \"args\": [\"-y\", \"@modelcontextprotocol/server-postgres\"],\n      \"env\": {\n        \"POSTGRES_URL\": \"${DATABASE_URL}\"\n      }\n    }\n  }\n}\n```\n\n**Common stdio patterns**:\n\n```json\n// Node.js server\n{\n  \"command\": \"node\",\n  \"args\": [\"path/to/server.js\"]\n}\n\n// Python server\n{\n  \"command\": \"python\",\n  \"args\": [\"-m\", \"my_mcp_server\"]\n}\n\n// NPX package\n{\n  \"command\": \"npx\",\n  \"args\": [\"-y\", \"@scope/package-name\"]\n}\n```\n\n---\n\n## Installation Methods\n\n### Command-Line Installation\n\nClaude Code provides a CLI for adding MCP servers:\n\n#### Option 1: Add Remote HTTP Server\n\n```bash\n# Basic syntax\nclaude mcp add --transport http <name> <url>\n\n# Example: Connect to Notion\nclaude mcp add --transport http notion https://mcp.notion.com/mcp\n\n# With Bearer token\nclaude mcp add --transport http secure-api https://api.example.com/mcp \\\n  --header \"Authorization: Bearer your-token\"\n\n# With multiple headers\nclaude mcp add --transport http api https://api.example.com/mcp \\\n  --header \"Authorization: Bearer ${TOKEN}\" \\\n  --header \"X-Custom-Header: value\"\n```\n\n#### Option 2: Add Remote SSE Server (Deprecated)\n\n```bash\n# Basic syntax\nclaude mcp add --transport sse <name> <url>\n\n# Example: Connect to Asana\nclaude mcp add --transport sse asana https://mcp.asana.com/sse\n\n# With authentication\nclaude mcp add --transport sse private-api https://api.company.com/sse \\\n  --header \"X-API-Key: your-key\"\n```\n\n#### Option 3: Add Local stdio Server\n\n```bash\n# Basic syntax\nclaude mcp add --transport stdio <name> <command> [args...]\n\n# Example: PostgreSQL server\nclaude mcp add --transport stdio postgres npx -y @modelcontextprotocol/server-postgres\n\n# With environment variables\nclaude mcp add --transport stdio postgres npx -y @modelcontextprotocol/server-postgres \\\n  --env POSTGRES_URL=${DATABASE_URL}\n\n# Python server\nclaude mcp add --transport stdio my-tool python -m my_mcp_server\n\n# Local Node.js script\nclaude mcp add --transport stdio local-tool node /path/to/server.js\n```\n\n### Managing Servers\n\n```bash\n# List installed servers\nclaude mcp list\n\n# Remove a server\nclaude mcp remove <server-name>\n\n# Update a server (remove and re-add)\nclaude mcp remove old-server\nclaude mcp add --transport http old-server https://new-url.com/mcp\n```\n\n### JSON Configuration Import\n\nYou can also add servers by directly editing `.mcp.json` or importing from Claude Desktop:\n\n```bash\n# Import from Claude Desktop config\nclaude mcp import ~/Library/Application\\ Support/Claude/claude_desktop_config.json\n```\n\n---\n\n## Configuration Scopes\n\nMCP servers can be configured at three different scopes with specific precedence rules:\n\n### 1. Local Scope (`.mcp.json` in project root)\n\n**Location**: `<project>/.mcp.json`\n**Scope**: Single project directory\n**Use case**: Project-specific tools and databases\n\n**Example**:\n```json\n{\n  \"mcpServers\": {\n    \"project-db\": {\n      \"transport\": \"stdio\",\n      \"command\": \"npx\",\n      \"args\": [\"-y\", \"@modelcontextprotocol/server-postgres\"],\n      \"env\": {\n        \"POSTGRES_URL\": \"postgresql://localhost/myproject\"\n      }\n    }\n  }\n}\n```\n\n**Best for**:\n- Project-specific databases\n- Local development tools\n- Team-shared configuration (committed to git)\n\n### 2. Project Scope (`.claude/.mcp.json`)\n\n**Location**: `<project>/.claude/.mcp.json`\n**Scope**: Same as local but in `.claude` directory\n**Use case**: Alternative location for project-level config\n\n### 3. User Scope (`~/.config/claude/.mcp.json`)\n\n**Location**: `~/.config/claude/.mcp.json`\n**Scope**: All projects for the current user\n**Use case**: Personal global tools and credentials\n\n**Example**:\n```json\n{\n  \"mcpServers\": {\n    \"github\": {\n      \"transport\": \"http\",\n      \"url\": \"https://api.github.com/mcp\",\n      \"headers\": {\n        \"Authorization\": \"token ${GITHUB_TOKEN}\"\n      }\n    },\n    \"notion\": {\n      \"transport\": \"http\",\n      \"url\": \"https://mcp.notion.com/mcp\",\n      \"headers\": {\n        \"Authorization\": \"Bearer ${NOTION_TOKEN}\"\n      }\n    }\n  }\n}\n```\n\n**Best for**:\n- Personal API credentials\n- Tools used across all projects\n- User-specific preferences\n\n### Scope Hierarchy and Precedence\n\nWhen Claude Code looks for MCP server configurations, it follows this precedence:\n\n```\nLocal Scope (.mcp.json)\n    \u2193\nProject Scope (.claude/.mcp.json)\n    \u2193\nUser Scope (~/.config/claude/.mcp.json)\n```\n\n**Rules**:\n- More specific scopes override less specific ones\n- Servers are merged across scopes (not replaced)\n- If the same server name exists in multiple scopes, the more local one wins\n\n**Example Scenario**:\n\n```json\n// User scope (~/.config/claude/.mcp.json)\n{\n  \"mcpServers\": {\n    \"github\": {\n      \"transport\": \"http\",\n      \"url\": \"https://api.github.com/mcp\",\n      \"headers\": {\n        \"Authorization\": \"token ${PERSONAL_GITHUB_TOKEN}\"\n      }\n    }\n  }\n}\n\n// Project scope (<project>/.mcp.json)\n{\n  \"mcpServers\": {\n    \"github\": {\n      \"transport\": \"http\",\n      \"url\": \"https://api.github.com/mcp\",\n      \"headers\": {\n        \"Authorization\": \"token ${TEAM_GITHUB_TOKEN}\"\n      }\n    },\n    \"project-db\": {\n      \"transport\": \"stdio\",\n      \"command\": \"npx\",\n      \"args\": [\"-y\", \"@modelcontextprotocol/server-postgres\"]\n    }\n  }\n}\n```\n\n**Result**: Project will use `TEAM_GITHUB_TOKEN` for GitHub (project scope wins) and have access to both `github` and `project-db` servers.\n\n### Choosing the Right Scope\n\n| Scenario | Recommended Scope |\n|----------|-------------------|\n| Project-specific database | Local/Project |\n| Team-shared tools | Local/Project (commit to git) |\n| Personal API credentials | User |\n| Development-only tools | Local/Project |\n| Global utilities (GitHub, Notion) | User |\n| Experimental servers | Local/Project |\n\n---\n\n## Using MCP Tools, Resources, and Prompts\n\nMCP servers can expose three types of capabilities:\n\n### 1. MCP Tools\n\n**What are tools?**: Functions that Claude Code can call to perform actions.\n\n**How to use**:\n- Claude Code automatically discovers available tools from connected servers\n- Tools appear in the tool list when relevant to your query\n- Claude Code decides when to use them based on context\n\n**Example tools**:\n- `github_create_pr` - Create a pull request\n- `postgres_query` - Execute SQL query\n- `sentry_get_errors` - Fetch error logs\n\n**Usage in conversation**:\n```\nYou: \"Create a PR for the authentication feature\"\nClaude Code: [Calls github_create_pr tool automatically]\n```\n\n**Viewing available tools**:\n```bash\n# List tools from a specific server\nclaude mcp tools <server-name>\n```\n\n### 2. MCP Resources\n\n**What are resources?**: Read-only data that Claude Code can access (files, documents, data).\n\n**How to reference resources**:\n\nUsing the special syntax:\n```\n#mcp:<server-name>/<resource-path>\n```\n\n**Example**:\n```\nYou: \"Summarize the content from #mcp:notion/project-spec\"\nClaude Code: [Fetches and analyzes the Notion document]\n```\n\n**Common resource patterns**:\n- `#mcp:github/repo/owner/name` - GitHub repository\n- `#mcp:notion/page/12345` - Notion page\n- `#mcp:database/table/users` - Database table\n\n**Listing resources**:\n```bash\n# List resources from a server\nclaude mcp resources <server-name>\n```\n\n### 3. MCP Prompts as Slash Commands\n\n**What are prompts?**: Pre-configured prompt templates from MCP servers.\n\n**How to use**:\n- MCP prompts automatically become slash commands\n- Format: `/mcp:<server-name>/<prompt-name>`\n\n**Example**:\n```json\n// Server provides a prompt called \"analyze-code\"\n{\n  \"name\": \"analyze-code\",\n  \"description\": \"Analyze code for issues\",\n  \"arguments\": [\"file_path\"]\n}\n```\n\n**Usage**:\n```\n/mcp:code-analyzer/analyze-code src/main.js\n```\n\n**Executing prompts programmatically**:\n```bash\n# List available prompts\nclaude mcp prompts <server-name>\n\n# Execute a prompt\nclaude mcp execute <server-name> <prompt-name> --arg key=value\n```\n\n### Output Limits and Warnings\n\n**Tool Output Limits**:\n- Default: 100KB per tool call\n- Large outputs are truncated with a warning\n- Configure in server if needed\n\n**Resource Limits**:\n- Default: 1MB per resource\n- Exceeded limits return error\n\n**Best practices**:\n- Paginate large results\n- Filter data at the source\n- Use streaming for large datasets\n\n---\n\n## Security and Authentication\n\n### Authentication Methods\n\n#### 1. Bearer Token Authentication (HTTP/SSE)\n\n```json\n{\n  \"mcpServers\": {\n    \"api\": {\n      \"transport\": \"http\",\n      \"url\": \"https://api.example.com/mcp\",\n      \"headers\": {\n        \"Authorization\": \"Bearer ${API_TOKEN}\"\n      }\n    }\n  }\n}\n```\n\n#### 2. API Key Authentication (HTTP/SSE)\n\n```json\n{\n  \"mcpServers\": {\n    \"api\": {\n      \"transport\": \"http\",\n      \"url\": \"https://api.example.com/mcp\",\n      \"headers\": {\n        \"X-API-Key\": \"${API_KEY}\"\n      }\n    }\n  }\n}\n```\n\n#### 3. Environment Variable Authentication (stdio)\n\n```json\n{\n  \"mcpServers\": {\n    \"postgres\": {\n      \"transport\": \"stdio\",\n      \"command\": \"npx\",\n      \"args\": [\"-y\", \"@modelcontextprotocol/server-postgres\"],\n      \"env\": {\n        \"POSTGRES_URL\": \"${DATABASE_URL}\",\n        \"POSTGRES_PASSWORD\": \"${DB_PASSWORD}\"\n      }\n    }\n  }\n}\n```\n\n### Security Best Practices\n\n#### \u2705 DO\n\n1. **Use environment variables for secrets**\n   ```json\n   {\n     \"headers\": {\n       \"Authorization\": \"Bearer ${SECRET_TOKEN}\"\n     }\n   }\n   ```\n\n2. **Store credentials in environment, not in config files**\n   ```bash\n   # .env file (not committed to git)\n   GITHUB_TOKEN=ghp_xxxxxxxxxxxx\n   DATABASE_URL=postgresql://user:pass@localhost/db\n   ```\n\n3. **Use user scope for personal credentials**\n   - Keep API keys in `~/.config/claude/.mcp.json`\n   - Never commit credentials to version control\n\n4. **Validate server authenticity**\n   - Only use MCP servers from trusted sources\n   - Verify server URLs and endpoints\n   - Review server code if open source\n\n5. **Use HTTPS for remote servers**\n   ```json\n   {\n     \"transport\": \"http\",\n     \"url\": \"https://api.example.com/mcp\"  // \u2705 HTTPS\n   }\n   ```\n\n#### \u274c DON'T\n\n1. **Never hardcode secrets in config files**\n   ```json\n   // \u274c BAD\n   {\n     \"headers\": {\n       \"Authorization\": \"Bearer ghp_hardcoded_token_12345\"\n     }\n   }\n   ```\n\n2. **Don't commit `.mcp.json` with secrets**\n   ```bash\n   # Add to .gitignore if it contains secrets\n   echo \".mcp.json\" >> .gitignore\n   ```\n\n3. **Avoid using untrusted MCP servers**\n   - Risk of data exfiltration\n   - Prompt injection vulnerabilities\n   - Malicious code execution\n\n4. **Don't use HTTP for sensitive data**\n   ```json\n   // \u274c BAD - unencrypted\n   {\n     \"url\": \"http://api.example.com/mcp\"\n   }\n   ```\n\n### Prompt Injection Risks\n\n**Warning**: MCP servers that fetch untrusted content can expose you to prompt injection attacks.\n\n**High-risk servers**:\n- Web scrapers\n- User-generated content platforms\n- Public APIs without sanitization\n\n**Mitigation**:\n1. Only use servers that sanitize inputs\n2. Review server code before using\n3. Limit server permissions\n4. Use enterprise controls (allowlists/denylists)\n\n---\n\n## Best Practices\n\n### 1. Configuration Organization\n\n**Recommended structure**:\n\n```\nyour-project/\n\u251c\u2500\u2500 .mcp.json                 # Project-specific, committed\n\u2502   \u2514\u2500\u2500 (team-shared servers)\n\u251c\u2500\u2500 .mcp.local.json          # Local overrides, gitignored\n\u2502   \u2514\u2500\u2500 (developer-specific)\n\u2514\u2500\u2500 .gitignore\n    \u2514\u2500\u2500 .mcp.local.json\n\n~/.config/claude/\n\u2514\u2500\u2500 .mcp.json                # User-global\n    \u2514\u2500\u2500 (personal credentials)\n```\n\n**Example `.gitignore`**:\n```\n.mcp.local.json\n.env\n*.secret.json\n```\n\n### 2. Environment Management\n\n**Use a `.env` file** (never commit):\n```bash\n# .env\nGITHUB_TOKEN=ghp_xxxxxxxxxxxx\nNOTION_TOKEN=secret_xxxxxxxxxxxx\nDATABASE_URL=postgresql://localhost/mydb\nSENTRY_DSN=https://key@sentry.io/project\n```\n\n**Load in shell before running Claude Code**:\n```bash\n# Load environment variables\nexport $(cat .env | xargs)\n\n# Run Claude Code\nclaude\n```\n\n**Or use direnv** for automatic loading:\n```bash\n# Install direnv\nbrew install direnv\n\n# Add to .envrc\nexport GITHUB_TOKEN=ghp_xxxxxxxxxxxx\n\n# Allow directory\ndirenv allow\n```\n\n### 3. Server Naming Conventions\n\nUse descriptive, consistent names:\n\n```json\n{\n  \"mcpServers\": {\n    \"github-team\": {},           // \u2705 Clear purpose\n    \"postgres-production\": {},   // \u2705 Environment indicated\n    \"sentry-errors\": {},         // \u2705 Descriptive\n    \"api\": {},                   // \u274c Too generic\n    \"server1\": {}                // \u274c Non-descriptive\n  }\n}\n```\n\n### 4. Testing and Validation\n\n**Test server connectivity**:\n```bash\n# List tools to verify connection\nclaude mcp tools <server-name>\n\n# Test a specific tool\nclaude mcp execute <server-name> <tool-name>\n```\n\n**Validate configuration**:\n```bash\n# Check for syntax errors\ncat .mcp.json | jq .\n\n# Verify environment variables\necho $GITHUB_TOKEN\n```\n\n### 5. Documentation\n\n**Document your MCP setup** in project README:\n\n```markdown\n## MCP Server Setup\n\n### Required Environment Variables\n\n```bash\nGITHUB_TOKEN=xxx       # GitHub API token\nDATABASE_URL=xxx       # PostgreSQL connection string\n```\n\n### Install MCP Servers\n\n```bash\n# GitHub integration\nclaude mcp add --transport http github https://api.github.com/mcp \\\n  --header \"Authorization: token ${GITHUB_TOKEN}\"\n\n# Database access\nclaude mcp add --transport stdio postgres npx -y @modelcontextprotocol/server-postgres \\\n  --env POSTGRES_URL=${DATABASE_URL}\n```\n```\n\n### 6. Performance Optimization\n\n**For stdio servers**:\n- Use `npx -y` to avoid interactive prompts\n- Cache frequently-used packages\n- Consider persistent server processes for high-frequency use\n\n**For HTTP/SSE servers**:\n- Use connection pooling where available\n- Implement rate limiting on server side\n- Cache responses when appropriate\n\n### 7. Error Handling\n\n**Handle common issues**:\n\n```json\n{\n  \"mcpServers\": {\n    \"flaky-service\": {\n      \"transport\": \"http\",\n      \"url\": \"https://api.example.com/mcp\",\n      \"timeout\": 30000,           // 30 second timeout\n      \"retries\": 3                // Retry failed requests\n    }\n  }\n}\n```\n\n---\n\n## Enterprise Configuration\n\nEnterprises can enforce MCP server policies for security and compliance.\n\n### Option 1: Exclusive Control with `managed-mcp.json`\n\n**Location**: `~/.config/claude/managed-mcp.json`\n\n**Behavior**:\n- Completely overrides user and project configurations\n- Users cannot add or modify servers\n- Centrally managed by IT/Security\n\n**Example**:\n```json\n{\n  \"mcpServers\": {\n    \"corporate-github\": {\n      \"transport\": \"http\",\n      \"url\": \"https://github.company.com/mcp\",\n      \"headers\": {\n        \"Authorization\": \"token ${CORP_GITHUB_TOKEN}\"\n      }\n    },\n    \"approved-database\": {\n      \"transport\": \"stdio\",\n      \"command\": \"npx\",\n      \"args\": [\"-y\", \"@company/mcp-db-server\"]\n    }\n  }\n}\n```\n\n**Use case**: Maximum security, highly regulated environments\n\n### Option 2: Policy-Based Control (Allowlists/Denylists)\n\n**Location**: `~/.config/claude/mcp-policy.json`\n\n**Behavior**:\n- Users can add servers within policy constraints\n- Flexible control with safety guardrails\n\n#### Restriction Options\n\n**Command-based restrictions** (stdio):\n```json\n{\n  \"allowedMcpServers\": {\n    \"command\": [\n      \"npx\",\n      \"node\",\n      \"python3\"\n    ]\n  }\n}\n```\n\n**URL-based restrictions** (HTTP/SSE):\n```json\n{\n  \"allowedMcpServers\": {\n    \"url\": [\n      \"https://*.company.com/*\",\n      \"https://api.github.com/*\",\n      \"https://approved-vendor.com/mcp\"\n    ]\n  }\n}\n```\n\n**Denylist** (block specific servers):\n```json\n{\n  \"deniedMcpServers\": {\n    \"url\": [\n      \"https://untrusted-site.com/*\",\n      \"http://*\"  // Block all HTTP (non-encrypted)\n    ],\n    \"command\": [\n      \"curl\",\n      \"wget\"\n    ]\n  }\n}\n```\n\n#### Complete Example Configuration\n\n```json\n{\n  \"allowedMcpServers\": {\n    \"command\": [\n      \"npx\",\n      \"node\",\n      \"/usr/local/bin/python3\"\n    ],\n    \"url\": [\n      \"https://*.company.com/*\",\n      \"https://api.github.com/*\",\n      \"https://api.notion.com/*\"\n    ]\n  },\n  \"deniedMcpServers\": {\n    \"url\": [\n      \"http://*\",\n      \"https://untrusted-vendor.com/*\"\n    ],\n    \"command\": [\n      \"bash\",\n      \"sh\",\n      \"curl\",\n      \"wget\"\n    ]\n  }\n}\n```\n\n### How Command-Based Restrictions Work\n\n**stdio transport matching**:\n```json\n// User tries to add:\n{\n  \"command\": \"npx\",\n  \"args\": [\"-y\", \"@modelcontextprotocol/server-postgres\"]\n}\n\n// Policy:\n{\n  \"allowedMcpServers\": {\n    \"command\": [\"npx\", \"node\"]\n  }\n}\n\n// Result: \u2705 Allowed (command is \"npx\")\n```\n\n### How URL-Based Restrictions Work\n\n**HTTP/SSE transport matching**:\n```json\n// User tries to add:\n{\n  \"transport\": \"http\",\n  \"url\": \"https://api.github.com/mcp\"\n}\n\n// Policy:\n{\n  \"allowedMcpServers\": {\n    \"url\": [\"https://api.github.com/*\"]\n  }\n}\n\n// Result: \u2705 Allowed (URL matches pattern)\n```\n\n### Allowlist Behavior\n\nWhen `allowedMcpServers` is defined:\n- Only explicitly allowed commands/URLs can be used\n- Any server not matching allowlist is **blocked**\n- Empty allowlist = block everything\n\n### Denylist Behavior\n\nWhen `deniedMcpServers` is defined:\n- Explicitly denied commands/URLs are **blocked**\n- Everything else is allowed\n- Denylist is checked **after** allowlist\n\n### Important Notes\n\n1. **Precedence**: `managed-mcp.json` > `mcp-policy.json` > user/project configs\n2. **Wildcard support**: Use `*` for pattern matching in URLs\n3. **Case sensitivity**: URLs are case-sensitive, commands may vary by OS\n4. **Validation**: Policies are enforced at server addition time\n5. **Auditing**: Consider logging MCP server usage for compliance\n\n---\n\n## Troubleshooting\n\n### Common Issues and Solutions\n\n#### 1. Server Not Connecting\n\n**Symptoms**: \"Failed to connect to MCP server\"\n\n**Solutions**:\n```bash\n# Check server configuration\ncat .mcp.json | jq .\n\n# Verify environment variables\necho $API_TOKEN\n\n# Test HTTP endpoint\ncurl -H \"Authorization: Bearer $TOKEN\" https://api.example.com/mcp\n\n# Check stdio command\nnpx -y @modelcontextprotocol/server-postgres --help\n```\n\n#### 2. Environment Variables Not Expanding\n\n**Symptoms**: Literal `${VAR_NAME}` in requests\n\n**Solutions**:\n```bash\n# Verify variable is set\necho $API_TOKEN\n\n# Export before running Claude Code\nexport API_TOKEN=your-token-here\n\n# Check shell configuration\necho $SHELL\n```\n\n#### 3. Tools Not Appearing\n\n**Symptoms**: MCP tools don't show up in Claude Code\n\n**Solutions**:\n```bash\n# List available tools\nclaude mcp tools <server-name>\n\n# Restart Claude Code\n# Exit and restart the CLI\n\n# Check server logs\nclaude mcp logs <server-name>\n```\n\n#### 4. Authentication Failures\n\n**Symptoms**: \"401 Unauthorized\" or \"403 Forbidden\"\n\n**Solutions**:\n```bash\n# Verify token is valid\ncurl -H \"Authorization: Bearer $TOKEN\" https://api.example.com/auth\n\n# Check token expiration\n# Regenerate token if expired\n\n# Verify header format\n# Some APIs use \"token\" instead of \"Bearer\"\n```\n\n#### 5. stdio Server Crashes\n\n**Symptoms**: Server process terminates unexpectedly\n\n**Solutions**:\n```bash\n# Run command manually to see errors\nnpx -y @modelcontextprotocol/server-postgres\n\n# Check Node.js/Python version\nnode --version\npython --version\n\n# Install dependencies\nnpm install -g @modelcontextprotocol/server-postgres\n```\n\n### Debug Mode\n\nEnable debug logging:\n```bash\n# Set debug environment variable\nexport CLAUDE_DEBUG=1\n\n# Run Claude Code\nclaude\n```\n\n### Getting Help\n\n1. **Check documentation**: https://docs.claude.com/en/docs/claude-code/mcp\n2. **GitHub issues**: https://github.com/modelcontextprotocol/\n3. **Community forums**: https://discord.gg/claude\n4. **Server-specific docs**: Check individual MCP server repositories\n\n---\n\n## Quick Reference\n\n### Essential Commands\n\n```bash\n# Add HTTP server\nclaude mcp add --transport http <name> <url>\n\n# Add stdio server\nclaude mcp add --transport stdio <name> <command> [args...]\n\n# List servers\nclaude mcp list\n\n# Remove server\nclaude mcp remove <name>\n\n# List tools\nclaude mcp tools <server-name>\n\n# List resources\nclaude mcp resources <server-name>\n\n# Import from Claude Desktop\nclaude mcp import ~/Library/Application\\ Support/Claude/claude_desktop_config.json\n```\n\n### Configuration File Locations\n\n```\nLocal:   <project>/.mcp.json\nProject: <project>/.claude/.mcp.json\nUser:    ~/.config/claude/.mcp.json\n\nEnterprise:\n  Managed: ~/.config/claude/managed-mcp.json\n  Policy:  ~/.config/claude/mcp-policy.json\n```\n\n### Example `.mcp.json` Template\n\n```json\n{\n  \"mcpServers\": {\n    \"github\": {\n      \"transport\": \"http\",\n      \"url\": \"https://api.github.com/mcp\",\n      \"headers\": {\n        \"Authorization\": \"token ${GITHUB_TOKEN}\"\n      }\n    },\n    \"postgres\": {\n      \"transport\": \"stdio\",\n      \"command\": \"npx\",\n      \"args\": [\"-y\", \"@modelcontextprotocol/server-postgres\"],\n      \"env\": {\n        \"POSTGRES_URL\": \"${DATABASE_URL}\"\n      }\n    },\n    \"notion\": {\n      \"transport\": \"http\",\n      \"url\": \"https://mcp.notion.com/mcp\",\n      \"headers\": {\n        \"Authorization\": \"Bearer ${NOTION_TOKEN}\"\n      }\n    }\n  }\n}\n```\n\n---\n\n## Conclusion\n\nThe Model Context Protocol (MCP) is a powerful standard that extends Claude Code's capabilities by connecting it to external tools, databases, and APIs. By following the best practices in this guide, you can:\n\n- **Securely configure** MCP servers across different scopes\n- **Authenticate properly** using environment variables\n- **Choose the right transport** for your use case\n- **Organize configuration** for team collaboration\n- **Enforce enterprise policies** when needed\n\n### Key Takeaways\n\n1. **Use HTTP transport** for remote servers (SSE is deprecated)\n2. **Store secrets in environment variables**, never in config files\n3. **Choose appropriate scope** (local for projects, user for personal)\n4. **Trust only verified servers** to avoid security risks\n5. **Document your setup** for team members\n6. **Test configurations** before deploying\n\n### Next Steps\n\n1. Install your first MCP server using the CLI\n2. Create a `.mcp.json` file for your project\n3. Set up environment variables securely\n4. Explore available MCP servers on GitHub\n5. Consider building custom MCP servers for your tools\n\n---\n\n**Resources**:\n- Official Docs: https://docs.claude.com/en/docs/claude-code/mcp\n- MCP Specification: https://spec.modelcontextprotocol.io\n- MCP SDK: https://github.com/modelcontextprotocol/typescript-sdk\n- MCP Servers: https://github.com/topics/mcp-server\n\n**Version**: Based on Anthropic documentation as of December 2025\n",
+        "numLines": 1310,
+        "startLine": 1,
+        "totalLines": 1310
+      }
+    },
+    "tool_use_id": "toolu_01XrS7gG5AceASQy6byosPNP"
+  },
+  {
+    "session_id": "dfe57d00-f7a9-41ca-9242-5ee2c1c10262",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/dfe57d00-f7a9-41ca-9242-5ee2c1c10262.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PostToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "cat ~/.claude/settings.json | grep -A 5 -B 5 \"mcp\" || echo \"No MCP configuration found\"",
+      "description": "Check for existing MCP server configuration"
+    },
+    "tool_response": {
+      "stdout": "No MCP configuration found",
+      "stderr": "",
+      "interrupted": false,
+      "isImage": false
+    },
+    "tool_use_id": "toolu_01XxHtvrjHbYuSHGyurPKadE"
+  },
+  {
+    "session_id": "dfe57d00-f7a9-41ca-9242-5ee2c1c10262",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/dfe57d00-f7a9-41ca-9242-5ee2c1c10262.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PostToolUse",
+    "tool_name": "WebSearch",
+    "tool_input": {
+      "query": "contextify-query MCP server Claude Code plugin 2026"
+    },
+    "tool_response": {
+      "query": "contextify-query MCP server Claude Code plugin 2026",
+      "results": [
+        {
+          "tool_use_id": "srvtoolu_01BTDm4qDEGfrVZBoXwma6GM",
+          "content": [
+            {
+              "title": "GitHub - zilliztech/claude-context: Code search MCP for Claude Code. Make entire codebase the context for any coding agent.",
+              "url": "https://github.com/zilliztech/claude-context"
+            },
+            {
+              "title": "Connect Claude Code to tools via MCP - Claude Code Docs",
+              "url": "https://code.claude.com/docs/en/mcp"
+            },
+            {
+              "title": "My parting gift to 2025 - my Claude Code context workflow turned into a plugin - DEV Community",
+              "url": "https://dev.to/scott_raisbeck_24ea5fbc1e/my-parting-gift-to-2025-my-claude-code-context-workflow-turned-into-a-plugin-28ii"
+            },
+            {
+              "title": "feat: add Claude Code plugin with Skill-based integration by amondnet \u00b7 Pull Request #786 \u00b7 upstash/context7",
+              "url": "https://github.com/upstash/context7/pull/786"
+            },
+            {
+              "title": "Add MCP Servers to Claude Code - Setup & Configuration Guide | MCPcat",
+              "url": "https://mcpcat.io/guides/adding-an-mcp-server-to-claude-code/"
+            },
+            {
+              "title": "Claude Code Just Cut MCP Context Bloat by 46.9% \u2014 51K Tokens Down to 8.5K With Tool Search | by Joe Njenga | Jan, 2026 | Medium",
+              "url": "https://medium.com/@joe.njenga/claude-code-just-cut-mcp-context-bloat-by-46-9-51k-tokens-down-to-8-5k-with-new-tool-search-ddf9e905f734"
+            },
+            {
+              "title": "ClaudeLog - Claude Code Docs, Guides, Tutorials & Best Practices",
+              "url": "https://claudelog.com/claude-code-mcps/context7-mcp/"
+            },
+            {
+              "title": "@upstash/context7-mcp - npm",
+              "url": "https://www.npmjs.com/package/@upstash/context7-mcp"
+            },
+            {
+              "title": "GitHub - upstash/context7: Context7 MCP Server -- Up-to-date code documentation for LLMs and AI code editors",
+              "url": "https://github.com/upstash/context7"
+            },
+            {
+              "title": "claude-code/plugins/README.md at main \u00b7 anthropics/claude-code",
+              "url": "https://github.com/anthropics/claude-code/blob/main/plugins/README.md"
+            }
+          ]
+        },
+        "I searched for \"contextify-query MCP server Claude Code plugin 2026\" but didn't find any specific MCP server or plugin called \"contextify-query\" in the results. However, I found several related context-focused MCP servers and plugins for Claude Code:\n\n## Related Context Management Tools Found:\n\n### 1. **Claude Context** (by Zilliz)\nAn MCP plugin that adds semantic code search to Claude Code and other AI coding agents, giving them deep context from your entire codebase.(no content)You can install it using: `claude mcp add claude-context`\n\n### 2. **Context7** (by Upstash)\nContext7 MCP dynamically fetches up-to-date, version-specific documentation and code examples from official sources and injects them directly into your Claude Code prompts.(no content)Install via: `claude mcp add context7 -- npx -y @upstash/context7-mcp --api-key YOUR_API_KEY`\n\n### 3. **Forgetful**\nA context management system that can be queried from Claude Code, Claude Desktop, ChatGPT via the hosted MCP endpoint, or any other MCP-compatible agent.\n\n### Recent Context-Related Updates:\nThe Claude Code team recently introduced Tool Search, showing a 46.9% reduction in total agent tokens during actual use.\n\nIf you were looking for a specific \"contextify-query\" tool, it may not exist yet, or it might be under a different name. Would you like more information about any of these context management tools instead?"
+      ],
+      "durationSeconds": 20.645298249999993
+    },
+    "tool_use_id": "toolu_016kmAs8WvhGRWXjqpGB7btG"
+  },
+  {
+    "session_id": "dfe57d00-f7a9-41ca-9242-5ee2c1c10262",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/dfe57d00-f7a9-41ca-9242-5ee2c1c10262.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PostToolUse",
+    "tool_name": "TodoWrite",
+    "tool_input": {
+      "todos": [
+        {
+          "content": "Research what 'contextify-query' refers to in the context of this project",
+          "status": "completed",
+          "activeForm": "Researching what 'contextify-query' refers to"
+        },
+        {
+          "content": "Determine if this is an MCP server, Claude Code plugin, or project-specific tool",
+          "status": "completed",
+          "activeForm": "Determining the type of tool/plugin"
+        },
+        {
+          "content": "Ask user for clarification on which context tool to install",
+          "status": "in_progress",
+          "activeForm": "Asking user for clarification on which context tool to install"
+        }
+      ]
+    },
+    "tool_response": {
+      "oldTodos": [
+        {
+          "content": "Research what 'contextify-query' refers to in the context of this project",
+          "status": "in_progress",
+          "activeForm": "Researching what 'contextify-query' refers to"
+        },
+        {
+          "content": "Determine if this is an MCP server, Claude Code plugin, or project-specific tool",
+          "status": "pending",
+          "activeForm": "Determining the type of tool/plugin"
+        },
+        {
+          "content": "Install or configure the plugin/tool as requested",
+          "status": "pending",
+          "activeForm": "Installing or configuring the plugin/tool"
+        }
+      ],
+      "newTodos": [
+        {
+          "content": "Research what 'contextify-query' refers to in the context of this project",
+          "status": "completed",
+          "activeForm": "Researching what 'contextify-query' refers to"
+        },
+        {
+          "content": "Determine if this is an MCP server, Claude Code plugin, or project-specific tool",
+          "status": "completed",
+          "activeForm": "Determining the type of tool/plugin"
+        },
+        {
+          "content": "Ask user for clarification on which context tool to install",
+          "status": "in_progress",
+          "activeForm": "Asking user for clarification on which context tool to install"
+        }
+      ]
+    },
+    "tool_use_id": "toolu_013gHNBo92QURXHPYtomAvhq"
+  }
+]

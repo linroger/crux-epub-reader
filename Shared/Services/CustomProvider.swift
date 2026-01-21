@@ -198,6 +198,25 @@ actor CustomProvider: AIProvider {
             throw AIProviderError.invalidResponse
         }
 
+        // Check for wrapped response format (e.g., Quotio)
+        // Format: {"status": "200", "msg": "Success", "body": {...}}
+        if let status = json["status"] as? String,
+           let body = json["body"] as? [String: Any] {
+            // Check if status indicates error
+            if status != "200" && status != "0" {
+                let errorMsg = json["msg"] as? String ?? "Request failed with status \(status)"
+                throw AIProviderError.apiError(statusCode: Int(status) ?? 0, message: errorMsg)
+            }
+
+            // Parse the body content
+            return try parseResponseBody(body)
+        }
+
+        // If no wrapper, try parsing directly
+        return try parseResponseBody(json)
+    }
+
+    private func parseResponseBody(_ json: [String: Any]) throws -> String {
         // Try OpenAI format first
         if let choices = json["choices"] as? [[String: Any]],
            let firstChoice = choices.first,

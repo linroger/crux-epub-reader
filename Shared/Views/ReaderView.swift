@@ -6,6 +6,7 @@ struct ReaderView: View {
     let book: Book
     let bookId: UUID
 
+    @Environment(AppState.self) private var appState
     @Environment(\.modelContext) private var modelContext
     @Query private var storedBooks: [StoredBook]
     @Query private var settings: [AppSettings]
@@ -27,6 +28,7 @@ struct ReaderView: View {
     @State private var showBookmarks = false
     @State private var showHighlights = false
     @State private var showAddBookmark = false
+    @State private var showExportAnnotations = false
     @State private var bookmarkNote = ""
     @State private var sessionManager: ReadingSessionManager?
 
@@ -182,6 +184,21 @@ struct ReaderView: View {
                     onClose: { closeSearch() },
                     onScopeChange: { scope in
                         handleScopeChange(scope)
+                    },
+                    searchHistory: appState.searchHistoryService.getRecentSearches(forBookId: bookId),
+                    onSelectHistory: { query in
+                        searchState.query = query
+                        if searchState.scope == .chapter {
+                            performInChapterSearch(query)
+                        } else {
+                            performBookSearch(query)
+                        }
+                    },
+                    onDeleteHistory: { item in
+                        appState.searchHistoryService.deleteSearch(item)
+                    },
+                    onClearHistory: {
+                        appState.searchHistoryService.clearHistory(forBookId: bookId)
                     }
                 )
 
@@ -217,6 +234,15 @@ struct ReaderView: View {
                     onSearchResults: { matchCount, currentIndex in
                         searchState.inChapterMatchCount = matchCount
                         searchState.inChapterCurrentIndex = max(0, currentIndex)
+
+                        // Save to search history if we got results
+                        if matchCount > 0 && !searchState.query.isEmpty {
+                            appState.searchHistoryService.addSearch(
+                                query: searchState.query,
+                                bookId: bookId,
+                                resultCount: matchCount
+                            )
+                        }
                     },
                     onContentLoaded: {
                         scrollToFragmentOrTop()
@@ -364,6 +390,14 @@ struct ReaderView: View {
                 } label: {
                     Label("Highlights", systemImage: "highlighter")
                 }
+
+                // Export annotations
+                Button {
+                    showExportAnnotations = true
+                } label: {
+                    Label("Export", systemImage: "square.and.arrow.up")
+                }
+                .disabled(annotations.highlights.isEmpty && annotations.bookmarks.isEmpty)
             }
         }
         .sheet(isPresented: $showTableOfContents) {
@@ -452,6 +486,13 @@ struct ReaderView: View {
             #if os(macOS)
             .frame(minWidth: 400, minHeight: 500)
             #endif
+        }
+        .sheet(isPresented: $showExportAnnotations) {
+            AnnotationExportView(
+                bookTitle: book.title,
+                bookAuthor: book.author,
+                annotations: annotations
+            )
         }
         .alert("Add Bookmark", isPresented: $showAddBookmark) {
             TextField("Note (optional)", text: $bookmarkNote)
@@ -1004,6 +1045,15 @@ struct ReaderView: View {
         }
 
         searchState.bookMatches = matches
+
+        // Save to search history if we got results
+        if !matches.isEmpty {
+            appState.searchHistoryService.addSearch(
+                query: query,
+                bookId: bookId,
+                resultCount: matches.count
+            )
+        }
     }
 
     private func evaluateJavaScript(_ js: String) {

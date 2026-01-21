@@ -8,7 +8,14 @@ struct InlineSearchBar: View {
     let onClose: () -> Void
     let onScopeChange: (SearchScope) -> Void
 
+    // Optional search history
+    var searchHistory: [SearchHistoryItem]? = nil
+    var onSelectHistory: ((String) -> Void)? = nil
+    var onDeleteHistory: ((SearchHistoryItem) -> Void)? = nil
+    var onClearHistory: (() -> Void)? = nil
+
     @FocusState private var isInputFocused: Bool
+    @State private var showHistory = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -23,6 +30,9 @@ struct InlineSearchBar: View {
                     .onSubmit { onNext() }
                     .onChange(of: searchState.query) { _, newValue in
                         onSearch(newValue)
+                    }
+                    .onChange(of: isInputFocused) { _, isFocused in
+                        showHistory = isFocused && searchState.query.isEmpty && (searchHistory?.isEmpty == false)
                     }
 
                 if !searchState.query.isEmpty {
@@ -41,6 +51,27 @@ struct InlineSearchBar: View {
             .background(.quaternary)
             .cornerRadius(8)
             .frame(maxWidth: 280)
+            .popover(isPresented: $showHistory, arrowEdge: .bottom) {
+                if let history = searchHistory,
+                   let onSelect = onSelectHistory,
+                   let onDelete = onDeleteHistory,
+                   let onClear = onClearHistory {
+                    SearchHistoryView(
+                        searches: history,
+                        onSelectSearch: { query in
+                            showHistory = false
+                            onSelect(query)
+                        },
+                        onDeleteSearch: { item in
+                            onDelete(item)
+                        },
+                        onClearAll: {
+                            onClear()
+                        }
+                    )
+                    .frame(width: 350, height: 300)
+                }
+            }
 
             // Match counter
             if !searchState.query.isEmpty {
