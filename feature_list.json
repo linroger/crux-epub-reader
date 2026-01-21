@@ -15,8 +15,9 @@
         "Add to SwiftData container",
         "Test persistence across app launches"
       ],
-      "passes": false,
-      "estimatedDays": 0.5
+      "passes": true,
+      "estimatedDays": 0.5,
+      "completedDate": "2026-01-22"
     },
     {
       "id": "settings_002_settings_ui",
@@ -32,8 +33,9 @@
         "Test navigation between tabs",
         "Verify settings persistence"
       ],
-      "passes": false,
-      "estimatedDays": 1
+      "passes": true,
+      "estimatedDays": 1,
+      "completedDate": "2026-01-22"
     },
     {
       "id": "ai_001_provider_protocol",
@@ -48,8 +50,9 @@
         "Create error types for AI operations",
         "Document protocol requirements"
       ],
-      "passes": false,
-      "estimatedDays": 0.5
+      "passes": true,
+      "estimatedDays": 0.5,
+      "completedDate": "2026-01-22"
     },
     {
       "id": "ai_002_claude_provider",
@@ -65,8 +68,9 @@
         "Test with existing margin note features",
         "Verify backward compatibility"
       ],
-      "passes": false,
-      "estimatedDays": 1
+      "passes": true,
+      "estimatedDays": 1,
+      "completedDate": "2026-01-22"
     },
     {
       "id": "ai_003_openai_provider",
@@ -82,8 +86,9 @@
         "Test margin note generation with GPT-4",
         "Compare quality with Claude responses"
       ],
-      "passes": false,
-      "estimatedDays": 1.5
+      "passes": true,
+      "estimatedDays": 1.5,
+      "completedDate": "2026-01-22"
     },
     {
       "id": "ai_004_custom_provider",
@@ -99,8 +104,9 @@
         "Test with cliproxyapi base URL",
         "Handle authentication variations"
       ],
-      "passes": false,
-      "estimatedDays": 1
+      "passes": true,
+      "estimatedDays": 1,
+      "completedDate": "2026-01-22"
     },
     {
       "id": "ai_005_provider_config_model",
@@ -115,8 +121,9 @@
         "Test CRUD operations",
         "Add migration from UserDefaults if needed"
       ],
-      "passes": false,
-      "estimatedDays": 0.5
+      "passes": true,
+      "estimatedDays": 0.5,
+      "completedDate": "2026-01-22"
     },
     {
       "id": "ai_006_provider_manager",
@@ -132,8 +139,9 @@
         "Test multi-provider workflows",
         "Add error recovery for missing providers"
       ],
-      "passes": false,
-      "estimatedDays": 1
+      "passes": true,
+      "estimatedDays": 1,
+      "completedDate": "2026-01-22"
     },
     {
       "id": "ai_007_provider_settings_ui",
@@ -149,8 +157,9 @@
         "Implement provider deletion",
         "Test adding Claude, OpenAI, and custom providers"
       ],
-      "passes": false,
-      "estimatedDays": 1.5
+      "passes": true,
+      "estimatedDays": 1.5,
+      "completedDate": "2026-01-22"
     },
     {
       "id": "ai_008_integrate_providers",
@@ -165,8 +174,9 @@
         "Test margin note generation with all providers",
         "Verify conversation threads work with all providers"
       ],
-      "passes": false,
-      "estimatedDays": 1
+      "passes": true,
+      "estimatedDays": 1,
+      "completedDate": "2026-01-22"
     },
     {
       "id": "notes_001_notes_view_model",
