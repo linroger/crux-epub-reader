@@ -130,5 +130,5 @@ final class AppState {
     var searchHistoryService = SearchHistoryService()
     var themeManager = ThemeManager()
     var tagManagementService = TagManagementService()
-    var ttsService = TextToSpeechService()
+    // var ttsService = TextToSpeechService() // Temporarily disabled due to MLX dependency issues
 }
