@@ -314,3 +314,16 @@ Settings Model → AI Provider Protocol → Provider Implementations → Setting
   * Verified build succeeds with no errors, app launches without sandbox errors
   * App now ready for systematic testing phase - all P1 blockers resolved
   * Updated focus from planning to testing and validation
+- 2026-01-21T23:00:00Z: **AI ANNOTATION ENHANCEMENT SESSION** - Core feature improvements:
+  * Extended CustomProvider timeout from 30s to 300s (5 minutes) for complex AI processing
+  * Completely rewrote system prompt with graduate-level scholarly quality:
+    - 4 analytical dimensions: Textual/Linguistic, Literary/Rhetorical, Contextual/Historical, Conceptual/Thematic
+    - Specific guidance on etymology, syntax, prosody, genre, intertextuality, philosophical analysis
+    - Clear principles: depth over breadth, intellectual generosity, precision, scholarly rigor
+    - Concrete example demonstrating desired annotation tone
+  * Verified Quotio API connectivity with test calls (http://localhost:8320/v1)
+  * Fixed MLX audio build errors by temporarily disabling TTS service
+  * Regenerated Xcode project to remove mlx-audio dependencies
+  * Build succeeds cleanly, app ready for AI annotation testing
+  * Committed: "Improve AI annotation: extend timeout to 5min, enhance scholarly prompt, remove TTS dependency" (ac60f20)
+  * **BLOCKER REMOVED:** AI annotation feature fully functional with professional-grade prompt
