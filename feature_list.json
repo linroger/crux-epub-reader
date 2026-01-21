@@ -1,0 +1,696 @@
+{
+  "project": "Crux EPUB Reader",
+  "version": "1.0",
+  "lastUpdated": "2026-01-21",
+  "features": [
+    {
+      "id": "settings_001_app_settings_model",
+      "category": "settings",
+      "priority": 1,
+      "description": "Create AppSettings SwiftData model for persistent configuration",
+      "steps": [
+        "Create AppSettings.swift with @Model class",
+        "Define properties: AI providers, reader preferences, UI preferences",
+        "Add default values factory method",
+        "Add to SwiftData container",
+        "Test persistence across app launches"
+      ],
+      "passes": false,
+      "estimatedDays": 0.5
+    },
+    {
+      "id": "settings_002_settings_ui",
+      "category": "settings",
+      "priority": 1,
+      "description": "Implement Settings view with tabbed interface",
+      "steps": [
+        "Replace stub SettingsView with TabView (macOS) / NavigationStack (iOS)",
+        "Create GeneralSettingsView",
+        "Create AIProvidersSettingsView",
+        "Create ReaderSettingsView",
+        "Create AboutView",
+        "Test navigation between tabs",
+        "Verify settings persistence"
+      ],
+      "passes": false,
+      "estimatedDays": 1
+    },
+    {
+      "id": "ai_001_provider_protocol",
+      "category": "ai",
+      "priority": 1,
+      "description": "Create AIProvider protocol abstraction",
+      "steps": [
+        "Define AIProvider protocol with required methods",
+        "Add generateResponse async method",
+        "Add optional streamResponse method",
+        "Define provider metadata (id, name, supportsStreaming)",
+        "Create error types for AI operations",
+        "Document protocol requirements"
+      ],
+      "passes": false,
+      "estimatedDays": 0.5
+    },
+    {
+      "id": "ai_002_claude_provider",
+      "category": "ai",
+      "priority": 1,
+      "description": "Refactor ClaudeService to ClaudeProvider conforming to AIProvider protocol",
+      "steps": [
+        "Create ClaudeProvider actor",
+        "Migrate existing ClaudeService logic",
+        "Conform to AIProvider protocol",
+        "Add configurable base URL support",
+        "Add model selection",
+        "Test with existing margin note features",
+        "Verify backward compatibility"
+      ],
+      "passes": false,
+      "estimatedDays": 1
+    },
+    {
+      "id": "ai_003_openai_provider",
+      "category": "ai",
+      "priority": 1,
+      "description": "Implement OpenAIProvider for GPT-4/o1 models",
+      "steps": [
+        "Create OpenAIProvider actor",
+        "Implement OpenAI chat completions API",
+        "Add Bearer token authentication",
+        "Support models: gpt-4o, gpt-4-turbo, o1-preview",
+        "Handle OpenAI-specific response format",
+        "Test margin note generation with GPT-4",
+        "Compare quality with Claude responses"
+      ],
+      "passes": false,
+      "estimatedDays": 1.5
+    },
+    {
+      "id": "ai_004_custom_provider",
+      "category": "ai",
+      "priority": 1,
+      "description": "Implement CustomProvider for user-defined APIs (cliproxyapi, etc.)",
+      "steps": [
+        "Create CustomProvider actor",
+        "Add user-defined base URL configuration",
+        "Add user-defined API key",
+        "Support OpenAI-compatible request format",
+        "Add response schema detection/validation",
+        "Test with cliproxyapi base URL",
+        "Handle authentication variations"
+      ],
+      "passes": false,
+      "estimatedDays": 1
+    },
+    {
+      "id": "ai_005_provider_config_model",
+      "category": "ai",
+      "priority": 1,
+      "description": "Create AIProviderConfig SwiftData model for provider storage",
+      "steps": [
+        "Create AIProviderConfig @Model class",
+        "Define properties: id, type, name, apiKey, baseURL, model",
+        "Add encryption for API keys (if possible)",
+        "Add validation logic",
+        "Test CRUD operations",
+        "Add migration from UserDefaults if needed"
+      ],
+      "passes": false,
+      "estimatedDays": 0.5
+    },
+    {
+      "id": "ai_006_provider_manager",
+      "category": "ai",
+      "priority": 1,
+      "description": "Create AIProviderManager for provider lifecycle management",
+      "steps": [
+        "Create AIProviderManager Observable class",
+        "Add provider registration/unregistration",
+        "Add active provider selection",
+        "Add provider factory method",
+        "Implement provider switching logic",
+        "Test multi-provider workflows",
+        "Add error recovery for missing providers"
+      ],
+      "passes": false,
+      "estimatedDays": 1
+    },
+    {
+      "id": "ai_007_provider_settings_ui",
+      "category": "ai",
+      "priority": 1,
+      "description": "Build AI Providers settings UI for adding/editing providers",
+      "steps": [
+        "Create ProviderListView showing all configured providers",
+        "Add 'Add Provider' button",
+        "Create ProviderEditView form (name, type, API key, base URL, model)",
+        "Add secure text field for API key",
+        "Add 'Test Connection' button",
+        "Implement provider deletion",
+        "Test adding Claude, OpenAI, and custom providers"
+      ],
+      "passes": false,
+      "estimatedDays": 1.5
+    },
+    {
+      "id": "ai_008_integrate_providers",
+      "category": "ai",
+      "priority": 1,
+      "description": "Integrate provider system into ThreadPanel",
+      "steps": [
+        "Update ThreadPanel to use AIProviderManager",
+        "Replace hardcoded ClaudeService with active provider",
+        "Update UI to show current provider",
+        "Add provider switching in UI (optional)",
+        "Test margin note generation with all providers",
+        "Verify conversation threads work with all providers"
+      ],
+      "passes": false,
+      "estimatedDays": 1
+    },
+    {
+      "id": "notes_001_notes_view_model",
+      "category": "notes",
+      "priority": 1,
+      "description": "Create NotesViewModel for highlights management",
+      "steps": [
+        "Create NotesViewModel Observable class",
+        "Add properties: books, highlights, filters",
+        "Add computed filteredHighlights property",
+        "Add search/filter logic",
+        "Add sort logic (date, book, chapter)",
+        "Test filtering and sorting"
+      ],
+      "passes": false,
+      "estimatedDays": 0.5
+    },
+    {
+      "id": "notes_002_notes_view_ui",
+      "category": "notes",
+      "priority": 1,
+      "description": "Build NotesView UI for browsing all highlights",
+      "steps": [
+        "Create NotesView (Window on macOS, Sheet on iOS)",
+        "Add toolbar with search, filter, sort, export",
+        "Add sidebar with book list (macOS only)",
+        "Create HighlightCard component",
+        "Add navigation to highlight in reader",
+        "Add empty state",
+        "Test multi-book highlight browsing"
+      ],
+      "passes": false,
+      "estimatedDays": 2
+    },
+    {
+      "id": "notes_003_edit_delete_highlights",
+      "category": "notes",
+      "priority": 1,
+      "description": "Add edit/delete functionality for highlights",
+      "steps": [
+        "Add edit mode to HighlightCard",
+        "Allow editing highlight text/context",
+        "Add delete confirmation dialog",
+        "Update BookStorage to support highlight deletion",
+        "Sync deletions with WebView",
+        "Test edit/delete operations",
+        "Verify annotations file updates"
+      ],
+      "passes": false,
+      "estimatedDays": 1
+    },
+    {
+      "id": "notes_004_navigate_to_highlight",
+      "category": "notes",
+      "priority": 1,
+      "description": "Implement navigation from notes view to highlight location in reader",
+      "steps": [
+        "Add navigation handler in AppState",
+        "Open reader for selected book",
+        "Navigate to chapter containing highlight",
+        "Scroll to CFI position",
+        "Highlight the selected text temporarily",
+        "Test navigation across multiple books"
+      ],
+      "passes": false,
+      "estimatedDays": 1
+    },
+    {
+      "id": "export_001_csv_export_service",
+      "category": "export",
+      "priority": 1,
+      "description": "Create ExportService for CSV generation",
+      "steps": [
+        "Create ExportService actor",
+        "Add exportHighlightsCSV method",
+        "Define CSV format: book, author, chapter, text, CFI, timestamp, threads",
+        "Handle CSV escaping for quotes/commas",
+        "Add export all or filtered highlights",
+        "Test CSV generation with various highlights",
+        "Verify Excel/Numbers compatibility"
+      ],
+      "passes": false,
+      "estimatedDays": 1
+    },
+    {
+      "id": "export_002_csv_export_ui",
+      "category": "export",
+      "priority": 1,
+      "description": "Add CSV export UI to notes view and toolbar",
+      "steps": [
+        "Add export button to notes view toolbar",
+        "Add export button to main app toolbar",
+        "Show macOS save panel for file location",
+        "Add progress indicator for large exports",
+        "Show success confirmation",
+        "Test exporting 10, 100, 1000+ highlights",
+        "Verify file saves correctly"
+      ],
+      "passes": false,
+      "estimatedDays": 0.5
+    },
+    {
+      "id": "reader_001_font_customization",
+      "category": "reader",
+      "priority": 2,
+      "description": "Add font family and size customization",
+      "steps": [
+        "Add font settings to AppSettings model",
+        "Create font picker UI in reader settings",
+        "Add font size slider (8-32pt)",
+        "Update reader.css with dynamic font values",
+        "Inject custom CSS into WebView",
+        "Test with system fonts (SF Pro, Georgia, etc.)",
+        "Verify settings persistence"
+      ],
+      "passes": false,
+      "estimatedDays": 1
+    },
+    {
+      "id": "reader_002_spacing_customization",
+      "category": "reader",
+      "priority": 2,
+      "description": "Add line height, paragraph spacing, and margin customization",
+      "steps": [
+        "Add spacing settings to AppSettings",
+        "Create spacing controls UI (sliders)",
+        "Add line height adjustment (1.0-3.0)",
+        "Add paragraph spacing control",
+        "Add margin width control",
+        "Update CSS injection",
+        "Test readability with various spacing values"
+      ],
+      "passes": false,
+      "estimatedDays": 1
+    },
+    {
+      "id": "reader_003_color_customization",
+      "category": "reader",
+      "priority": 2,
+      "description": "Add background, text, and highlight color customization",
+      "steps": [
+        "Add color settings to AppSettings",
+        "Create color picker UI",
+        "Add background color selection",
+        "Add text color selection",
+        "Add highlight color palette",
+        "Update CSS with custom colors",
+        "Test contrast and readability",
+        "Add preset themes (sepia, night mode, etc.)"
+      ],
+      "passes": false,
+      "estimatedDays": 1.5
+    },
+    {
+      "id": "reader_004_theme_system",
+      "category": "reader",
+      "priority": 2,
+      "description": "Implement theme system with light/dark/custom modes",
+      "steps": [
+        "Create AppTheme enum",
+        "Add theme settings to AppSettings",
+        "Implement system theme detection",
+        "Create theme presets (light, dark, sepia, night)",
+        "Add theme switcher UI",
+        "Apply theme to reader and app UI",
+        "Test theme switching",
+        "Verify system theme changes are detected"
+      ],
+      "passes": false,
+      "estimatedDays": 1
+    },
+    {
+      "id": "reader_005_appearance_preview",
+      "category": "reader",
+      "priority": 2,
+      "description": "Add live preview for reader appearance settings",
+      "steps": [
+        "Create preview component in settings",
+        "Show sample text with current settings",
+        "Update preview in real-time as settings change",
+        "Add 'Reset to defaults' button",
+        "Test preview accuracy",
+        "Verify preview matches actual reader"
+      ],
+      "passes": false,
+      "estimatedDays": 0.5
+    },
+    {
+      "id": "ui_001_enhanced_toolbar",
+      "category": "ui",
+      "priority": 3,
+      "description": "Enhance app toolbar with notes, export, settings buttons",
+      "steps": [
+        "Add toolbar items: notes, export, settings, appearance",
+        "Use SF Symbols for icons",
+        "Add keyboard shortcuts",
+        "Create appearance popover (quick access to font/theme)",
+        "Test toolbar customization (macOS)",
+        "Verify iOS toolbar layout"
+      ],
+      "passes": false,
+      "estimatedDays": 1
+    },
+    {
+      "id": "ui_002_library_sorting",
+      "category": "ui",
+      "priority": 3,
+      "description": "Add sorting options to library view",
+      "steps": [
+        "Add sort menu to library toolbar",
+        "Implement sorting: title, author, progress, last read, added date",
+        "Add ascending/descending toggle",
+        "Persist sort preference",
+        "Test sorting with large library (100+ books)",
+        "Verify performance"
+      ],
+      "passes": false,
+      "estimatedDays": 0.5
+    },
+    {
+      "id": "ui_003_library_view_modes",
+      "category": "ui",
+      "priority": 3,
+      "description": "Add grid view mode to library",
+      "steps": [
+        "Create grid layout view",
+        "Add view mode toggle (list/grid)",
+        "Show cover thumbnails in grid",
+        "Add metadata overlay",
+        "Persist view mode preference",
+        "Test grid layout responsiveness",
+        "Verify cover image loading performance"
+      ],
+      "passes": false,
+      "estimatedDays": 1
+    },
+    {
+      "id": "ui_004_error_handling",
+      "category": "ui",
+      "priority": 3,
+      "description": "Improve error messages and user feedback",
+      "steps": [
+        "Create error alert component with recovery actions",
+        "Add loading states with progress indicators",
+        "Add success toast notifications",
+        "Improve API error messages (rate limits, auth failures)",
+        "Add error logging for debugging",
+        "Test error scenarios (network failures, invalid files, etc.)",
+        "Verify error messages are user-friendly"
+      ],
+      "passes": false,
+      "estimatedDays": 1
+    },
+    {
+      "id": "ui_005_onboarding",
+      "category": "ui",
+      "priority": 3,
+      "description": "Create first-run onboarding experience",
+      "steps": [
+        "Detect first launch",
+        "Create welcome screen",
+        "Add feature tour (library, reader, AI, highlights)",
+        "Add sample EPUB for demo",
+        "Add tooltips on key features",
+        "Add 'Skip' option",
+        "Test onboarding flow",
+        "Persist onboarding completion"
+      ],
+      "passes": false,
+      "estimatedDays": 1.5
+    },
+    {
+      "id": "ui_006_help_system",
+      "category": "ui",
+      "priority": 3,
+      "description": "Add help menu and documentation",
+      "steps": [
+        "Create Help menu with shortcuts",
+        "Add in-app documentation view",
+        "Document keyboard shortcuts",
+        "Add context-sensitive help tooltips",
+        "Create FAQ section",
+        "Add link to online documentation",
+        "Test help accessibility"
+      ],
+      "passes": false,
+      "estimatedDays": 1
+    },
+    {
+      "id": "advanced_001_bookmarks",
+      "category": "advanced",
+      "priority": 4,
+      "description": "Implement bookmarks system",
+      "steps": [
+        "Create Bookmark model",
+        "Add bookmark creation UI",
+        "Add bookmark list view",
+        "Add bookmark navigation",
+        "Add bookmark export/import",
+        "Test bookmark persistence",
+        "Distinguish bookmarks from auto-resume position"
+      ],
+      "passes": false,
+      "estimatedDays": 2
+    },
+    {
+      "id": "advanced_002_reading_analytics",
+      "category": "advanced",
+      "priority": 4,
+      "description": "Add reading time tracking and goals",
+      "steps": [
+        "Create reading session tracking",
+        "Add time per book tracking",
+        "Calculate reading speed (pages/hour)",
+        "Add reading goals (pages/day, time/day)",
+        "Create progress charts",
+        "Add reading streaks",
+        "Create analytics view",
+        "Test tracking accuracy"
+      ],
+      "passes": false,
+      "estimatedDays": 2.5
+    },
+    {
+      "id": "advanced_003_advanced_search",
+      "category": "advanced",
+      "priority": 4,
+      "description": "Add regex and annotation search",
+      "steps": [
+        "Add regex toggle to search UI",
+        "Implement regex search in HTMLTextExtractor",
+        "Add search in annotations/threads",
+        "Add search across entire library",
+        "Add recent searches history",
+        "Add search suggestions",
+        "Test regex patterns",
+        "Verify performance with large libraries"
+      ],
+      "passes": false,
+      "estimatedDays": 1.5
+    },
+    {
+      "id": "advanced_004_icloud_sync",
+      "category": "advanced",
+      "priority": 4,
+      "description": "Add iCloud sync for library and annotations",
+      "steps": [
+        "Add CloudKit capability",
+        "Create CloudKit schema",
+        "Implement sync logic for books",
+        "Implement sync logic for annotations",
+        "Add conflict resolution",
+        "Add sync status indicator",
+        "Test multi-device sync",
+        "Handle offline/online transitions"
+      ],
+      "passes": false,
+      "estimatedDays": 3
+    },
+    {
+      "id": "advanced_005_ai_streaming",
+      "category": "advanced",
+      "priority": 4,
+      "description": "Add streaming responses for AI providers",
+      "steps": [
+        "Add streamResponse to AIProvider protocol",
+        "Implement streaming for ClaudeProvider",
+        "Implement streaming for OpenAIProvider",
+        "Update ThreadPanel to show streaming responses",
+        "Add typing indicator",
+        "Test streaming performance",
+        "Add fallback to non-streaming"
+      ],
+      "passes": false,
+      "estimatedDays": 2
+    },
+    {
+      "id": "polish_001_accessibility",
+      "category": "polish",
+      "priority": 3,
+      "description": "Improve VoiceOver and accessibility support",
+      "steps": [
+        "Add accessibility labels to all buttons/controls",
+        "Add accessibility hints",
+        "Test VoiceOver navigation",
+        "Add Dynamic Type support",
+        "Test keyboard navigation",
+        "Add high contrast mode support",
+        "Verify WCAG compliance"
+      ],
+      "passes": false,
+      "estimatedDays": 1.5
+    },
+    {
+      "id": "polish_002_performance",
+      "category": "polish",
+      "priority": 3,
+      "description": "Optimize app performance",
+      "steps": [
+        "Profile app with Instruments",
+        "Optimize library list (lazy loading)",
+        "Optimize cover image loading (caching)",
+        "Optimize WebView memory usage",
+        "Add debouncing to search input",
+        "Optimize EPUB parsing for large files",
+        "Test with 1000+ book library",
+        "Verify <1s app launch time"
+      ],
+      "passes": false,
+      "estimatedDays": 2
+    },
+    {
+      "id": "polish_003_refactoring",
+      "category": "polish",
+      "priority": 3,
+      "description": "Code quality improvements and refactoring",
+      "steps": [
+        "Split large view files (LibraryView, ReaderView)",
+        "Add dependency injection for services",
+        "Improve error type specificity",
+        "Add OSLog throughout",
+        "Remove code duplication",
+        "Add code documentation",
+        "Run SwiftLint and fix issues",
+        "Verify zero compiler warnings"
+      ],
+      "passes": false,
+      "estimatedDays": 2
+    },
+    {
+      "id": "polish_004_testing",
+      "category": "polish",
+      "priority": 3,
+      "description": "Increase test coverage",
+      "steps": [
+        "Add unit tests for new services (AIProviderManager, ExportService)",
+        "Add unit tests for new models (AppSettings, AIProviderConfig)",
+        "Add UI tests for settings flow",
+        "Add UI tests for notes view",
+        "Add UI tests for export",
+        "Add integration tests for provider switching",
+        "Achieve 70%+ code coverage",
+        "Verify all tests pass in CI"
+      ],
+      "passes": false,
+      "estimatedDays": 2.5
+    },
+    {
+      "id": "macos_001_window_management",
+      "category": "macos",
+      "priority": 3,
+      "description": "Improve macOS window management",
+      "steps": [
+        "Add window state restoration",
+        "Add full-screen support",
+        "Add split view support",
+        "Add tabbed windows (multi-book reading)",
+        "Test window behaviors",
+        "Verify Mission Control integration"
+      ],
+      "passes": false,
+      "estimatedDays": 1.5
+    },
+    {
+      "id": "macos_002_menu_bar",
+      "category": "macos",
+      "priority": 3,
+      "description": "Implement complete macOS menu bar",
+      "steps": [
+        "Create File menu (Open, Close, Export, etc.)",
+        "Create Edit menu (Copy, Paste, Find, etc.)",
+        "Create View menu (Show/Hide panels, zoom, etc.)",
+        "Create Navigate menu (Next/Prev chapter, bookmarks, etc.)",
+        "Create Window menu (Minimize, Zoom, etc.)",
+        "Create Help menu (Documentation, About, etc.)",
+        "Add keyboard shortcuts to all menu items",
+        "Test menu bar completeness"
+      ],
+      "passes": false,
+      "estimatedDays": 1.5
+    },
+    {
+      "id": "macos_003_system_integration",
+      "category": "macos",
+      "priority": 3,
+      "description": "Add macOS system integration features",
+      "steps": [
+        "Add drag & drop EPUB file support",
+        "Add Quick Look plugin for EPUB preview",
+        "Add Spotlight integration for library search",
+        "Add Touch Bar support (if applicable)",
+        "Add Services menu integration",
+        "Test system integrations",
+        "Verify sandboxing doesn't break features"
+      ],
+      "passes": false,
+      "estimatedDays": 2
+    },
+    {
+      "id": "bugs_001_fix_known_issues",
+      "category": "bugs",
+      "priority": 1,
+      "description": "Fix any known bugs and issues from testing",
+      "steps": [
+        "Review git commits for TODO/FIXME comments",
+        "Test all features systematically",
+        "Fix API key management in settings (remove UserDefaults)",
+        "Fix any race conditions in async code",
+        "Fix memory leaks in WebView",
+        "Fix UI glitches in library/reader",
+        "Verify no crashes in normal usage"
+      ],
+      "passes": false,
+      "estimatedDays": 2
+    }
+  ],
+  "summary": {
+    "totalFeatures": 53,
+    "priority1": 17,
+    "priority2": 5,
+    "priority3": 17,
+    "priority4": 5,
+    "estimatedTotalDays": 62.5,
+    "currentCompletion": "0%",
+    "targetCompletion": "100%"
+  }
+}

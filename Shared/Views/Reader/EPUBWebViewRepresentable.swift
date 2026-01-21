@@ -15,6 +15,7 @@ struct EPUBWebViewRepresentable: PlatformViewRepresentable {
     let html: String
     let highlights: [Highlight]
     let marginNotes: [MarginNoteData]
+    let customCSS: String?
     let onTextSelected: (SelectionData) -> Void
     let onHighlightTapped: (UUID) -> Void
     let onMarginNoteAction: ((MarginNoteAction) -> Void)?
@@ -65,7 +66,7 @@ struct EPUBWebViewRepresentable: PlatformViewRepresentable {
         webView.navigationDelegate = context.coordinator
 
         // Load HTML with bundle base URL for resource loading
-        if let styledHTML = ReaderResources.buildHTML(content: html),
+        if let styledHTML = ReaderResources.buildHTML(content: html, customCSS: customCSS),
            let baseURL = ReaderResources.baseURL {
             webView.loadHTMLString(styledHTML, baseURL: baseURL)
         }
@@ -81,7 +82,7 @@ struct EPUBWebViewRepresentable: PlatformViewRepresentable {
     private func updateWebView(_ webView: WKWebView, context: Context) {
         // Only reload if the HTML content actually changed
         if context.coordinator.lastLoadedHTML != html {
-            if let styledHTML = ReaderResources.buildHTML(content: html),
+            if let styledHTML = ReaderResources.buildHTML(content: html, customCSS: customCSS),
                let baseURL = ReaderResources.baseURL {
                 webView.loadHTMLString(styledHTML, baseURL: baseURL)
             }

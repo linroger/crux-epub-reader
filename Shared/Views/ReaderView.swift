@@ -8,12 +8,11 @@ struct ReaderView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Query private var storedBooks: [StoredBook]
+    @Query private var settings: [AppSettings]
 
     @State private var currentChapterIndex = 0
     @State private var threadState = ThreadPanelState()
     @State private var annotations = BookAnnotations(bookId: UUID())
-    @State private var showingAPIKeyPrompt = false
-    @State private var apiKey = ""
     @State private var loadingHighlightId: UUID? = nil
     @State private var pendingSelection: SelectionData? = nil
     @State private var pendingHighlightId: UUID? = nil
@@ -24,6 +23,16 @@ struct ReaderView: View {
     @State private var isNavigatingProgrammatically = false
     @State private var currentScrollPosition: Double = 0
     @State private var pendingScrollPosition: Double? = nil
+    @State private var showTableOfContents = false
+    @State private var showBookmarks = false
+    @State private var showHighlights = false
+    @State private var showAddBookmark = false
+    @State private var bookmarkNote = ""
+    @State private var sessionManager: ReadingSessionManager?
+
+    private var isTrackingEnabled: Bool {
+        settings.first?.trackReadingTime ?? true
+    }
 
     private var storedBook: StoredBook? {
         storedBooks.first { $0.id == bookId }
@@ -218,6 +227,11 @@ struct ReaderView: View {
                         handleVisibleSectionChange(chapterIndex, scrollPosition: scrollPosition)
                     }
                 )
+                .id(currentChapterIndex)  // Force view recreation on chapter change
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .move(edge: .trailing)),
+                    removal: .opacity.combined(with: .move(edge: .leading))
+                ))
             } else {
                 Text("No content available")
                     .foregroundStyle(.secondary)
@@ -322,27 +336,190 @@ struct ReaderView: View {
         }
         .navigationTitle(book.title)
         .toolbar {
-            ToolbarItem {
-                Menu {
-                    ForEach(Array(book.chapters.enumerated()), id: \.offset) { index, chapter in
-                        Button {
-                            navigateToChapter(index)
-                        } label: {
-                            HStack {
-                                Text(String(repeating: "    ", count: chapter.depth) + chapter.title)
-                                    .font(chapter.depth == 0 ? .body.weight(.medium) : .body)
-                            }
-                        }
-                    }
+            ToolbarItemGroup(placement: .automatic) {
+                // View bookmarks
+                Button {
+                    showBookmarks = true
+                } label: {
+                    Label("Bookmarks", systemImage: "bookmark.fill")
+                }
+
+                // Add bookmark
+                Button {
+                    showAddBookmark = true
+                } label: {
+                    Label("Add Bookmark", systemImage: "bookmark.circle")
+                }
+
+                // Table of contents
+                Button {
+                    showTableOfContents = true
                 } label: {
                     Label("Chapters", systemImage: "list.bullet")
                 }
+
+                // View highlights
+                Button {
+                    showHighlights = true
+                } label: {
+                    Label("Highlights", systemImage: "highlighter")
+                }
+            }
+        }
+        .sheet(isPresented: $showTableOfContents) {
+            NavigationStack {
+                TableOfContentsView(
+                    chapters: book.chapters,
+                    currentChapterIndex: currentChapterIndex,
+                    onSelectChapter: { index in
+                        showTableOfContents = false
+                        navigateToChapter(index)
+                    }
+                )
+                .navigationTitle("Table of Contents")
+                #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+                #endif
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") {
+                            showTableOfContents = false
+                        }
+                    }
+                }
+            }
+            #if os(macOS)
+            .frame(minWidth: 400, minHeight: 500)
+            #endif
+        }
+        .sheet(isPresented: $showBookmarks) {
+            NavigationStack {
+                BookmarksView(
+                    bookmarks: annotations.bookmarks,
+                    bookTitle: book.title,
+                    bookAuthor: book.author ?? "Unknown Author",
+                    onSelectBookmark: { bookmark in
+                        showBookmarks = false
+                        navigateToBookmark(bookmark)
+                    },
+                    onDeleteBookmark: { bookmarkId in
+                        deleteBookmark(id: bookmarkId)
+                    }
+                )
+                .navigationTitle("Bookmarks")
+                #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+                #endif
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") {
+                            showBookmarks = false
+                        }
+                    }
+                }
+            }
+            #if os(macOS)
+            .frame(minWidth: 400, minHeight: 500)
+            #endif
+        }
+        .sheet(isPresented: $showHighlights) {
+            NavigationStack {
+                HighlightsView(
+                    bookId: bookId,
+                    highlights: annotations.highlights,
+                    bookTitle: book.title,
+                    bookAuthor: book.author ?? "Unknown Author",
+                    onSelectHighlight: { highlight in
+                        showHighlights = false
+                        navigateToHighlight(highlight)
+                    },
+                    onDeleteHighlight: { highlightId in
+                        deleteHighlight(id: highlightId)
+                    }
+                )
+                .navigationTitle("Highlights")
+                #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+                #endif
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") {
+                            showHighlights = false
+                        }
+                    }
+                }
+            }
+            #if os(macOS)
+            .frame(minWidth: 400, minHeight: 500)
+            #endif
+        }
+        .alert("Add Bookmark", isPresented: $showAddBookmark) {
+            TextField("Note (optional)", text: $bookmarkNote)
+            Button("Cancel", role: .cancel) {
+                bookmarkNote = ""
+            }
+            Button("Add") {
+                addBookmark()
+            }
+        } message: {
+            if let chapter = currentChapter {
+                Text("Save bookmark for \"\(chapter.title)\"")
             }
         }
         .task {
             await loadState()
         }
-        .onChange(of: currentChapterIndex) { _, _ in
+        .onAppear {
+            // Initialize and start reading session tracking
+            sessionManager = ReadingSessionManager(
+                modelContext: modelContext,
+                isTrackingEnabled: isTrackingEnabled
+            )
+            if let bookId = storedBooks.first(where: { $0.id == book.id })?.id {
+                sessionManager?.startSession(bookId: bookId, chapterIndex: currentChapterIndex)
+            }
+
+            // Listen for app lifecycle events to pause/resume tracking
+            #if os(macOS)
+            NotificationCenter.default.addObserver(
+                forName: NSApplication.didResignActiveNotification,
+                object: nil,
+                queue: .main
+            ) { _ in
+                sessionManager?.pauseSession(chapterIndex: currentChapterIndex)
+            }
+
+            NotificationCenter.default.addObserver(
+                forName: NSApplication.didBecomeActiveNotification,
+                object: nil,
+                queue: .main
+            ) { _ in
+                sessionManager?.resumeSession(chapterIndex: currentChapterIndex)
+            }
+            #endif
+        }
+        .onDisappear {
+            // End reading session when view disappears
+            sessionManager?.endCurrentSession(chapterIndex: currentChapterIndex)
+
+            // Remove lifecycle observers
+            #if os(macOS)
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSApplication.didResignActiveNotification,
+                object: nil
+            )
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSApplication.didBecomeActiveNotification,
+                object: nil
+            )
+            #endif
+        }
+        .onChange(of: currentChapterIndex) { _, newChapter in
+            // Update reading session progress
+            sessionManager?.updateProgress(chapterIndex: newChapter)
+
             // Scroll to position after chapter change
             // Use delay to let content load/update first
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -379,6 +556,47 @@ struct ReaderView: View {
             }
             return .ignored
         }
+        .onKeyPress(characters: .init(charactersIn: "tT")) { press in
+            if press.modifiers.contains(.command) {
+                showTableOfContents.toggle()
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(characters: .init(charactersIn: "bB")) { press in
+            if press.modifiers.contains(.command) {
+                showBookmarks.toggle()
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(characters: .init(charactersIn: "hH")) { press in
+            if press.modifiers.contains(.command) {
+                showHighlights.toggle()
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(characters: .init(charactersIn: "[")) { press in
+            if press.modifiers.contains(.command) {
+                // Previous chapter
+                if currentChapterIndex > 0 {
+                    navigateToChapter(currentChapterIndex - 1)
+                }
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(characters: .init(charactersIn: "]")) { press in
+            if press.modifiers.contains(.command) {
+                // Next chapter
+                if currentChapterIndex < book.chapters.count - 1 {
+                    navigateToChapter(currentChapterIndex + 1)
+                }
+                return .handled
+            }
+            return .ignored
+        }
         .onKeyPress(.escape) {
             if pendingSelection != nil {
                 clearPendingSelection()
@@ -388,13 +606,6 @@ struct ReaderView: View {
             return .ignored
         }
         #endif
-        .sheet(isPresented: $showingAPIKeyPrompt) {
-            APIKeyPromptView(apiKey: $apiKey) { key in
-                Task {
-                    await threadState.setAPIKey(key)
-                }
-            }
-        }
     }
 
     private func handleTextSelection(_ selectionData: SelectionData) {
@@ -444,9 +655,8 @@ struct ReaderView: View {
                 }
 
             case .startThread(let highlightId):
-                let isConfigured = await threadState.isConfigured
-                guard isConfigured else {
-                    showingAPIKeyPrompt = true
+                // Provider configuration check will happen in ThreadPanel
+                guard threadState.isConfigured else {
                     return
                 }
 
@@ -480,9 +690,8 @@ struct ReaderView: View {
                 loadingHighlightId = nil
 
             case .sendFollowUp(let highlightId, let message):
-                let isConfigured = await threadState.isConfigured
-                guard isConfigured else {
-                    showingAPIKeyPrompt = true
+                // Provider configuration check will happen in ThreadPanel
+                guard threadState.isConfigured else {
                     return
                 }
 
@@ -548,7 +757,10 @@ struct ReaderView: View {
             searchState.inChapterCurrentIndex = 0
         }
 
-        currentChapterIndex = index
+        // Animate chapter transition
+        withAnimation(.easeInOut(duration: 0.25)) {
+            currentChapterIndex = index
+        }
         saveProgress()
 
         // End programmatic navigation after scroll settles
@@ -560,6 +772,82 @@ struct ReaderView: View {
 
     private func saveProgress() {
         storedBook?.updateProgress(chapter: currentChapterIndex, total: book.chapters.count, scroll: currentScrollPosition)
+    }
+
+    // MARK: - Bookmark Management
+
+    private func addBookmark() {
+        guard let chapter = currentChapter else { return }
+
+        let bookmark = Bookmark(
+            chapterId: chapter.id,
+            chapterIndex: currentChapterIndex,
+            chapterTitle: chapter.title,
+            note: bookmarkNote.isEmpty ? nil : bookmarkNote,
+            scrollPosition: currentScrollPosition
+        )
+
+        annotations.addBookmark(bookmark)
+
+        // Save annotations
+        Task {
+            try? await BookStorage.shared.saveAnnotations(annotations)
+        }
+
+        // Clear the note for next time
+        bookmarkNote = ""
+    }
+
+    private func deleteBookmark(id: UUID) {
+        annotations.removeBookmark(id: id)
+
+        // Save annotations
+        Task {
+            try? await BookStorage.shared.saveAnnotations(annotations)
+        }
+    }
+
+    private func navigateToBookmark(_ bookmark: Bookmark) {
+        // Navigate to the chapter
+        navigateToChapter(bookmark.chapterIndex)
+
+        // If there's a scroll position, restore it
+        if bookmark.scrollPosition > 0 {
+            // Delay to let chapter load first
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                pendingScrollPosition = bookmark.scrollPosition
+                restoreScrollPositionIfNeeded()
+            }
+        }
+    }
+
+    // MARK: - Highlight Management
+
+    private func deleteHighlight(id: UUID) {
+        annotations.removeHighlight(id: id)
+
+        // Save annotations
+        Task {
+            try? await BookStorage.shared.saveAnnotations(annotations)
+        }
+    }
+
+    private func navigateToHighlight(_ highlight: Highlight) {
+        // Find the chapter containing this highlight
+        guard let chapterIndex = book.chapters.firstIndex(where: { $0.id == highlight.chapterId }) else {
+            return
+        }
+
+        // Navigate to the chapter
+        navigateToChapter(chapterIndex)
+
+        // After chapter loads, scroll to the highlight
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            // Use CFI to scroll to highlight position
+            guard let cfiRange = highlight.cfiRange else { return }
+            let escaped = cfiRange.cfiString.replacingOccurrences(of: "'", with: "\\'")
+            evaluateJavaScript("CruxHighlighter.scrollToCFI('\(escaped)');")
+        }
     }
 
     private func scrollToFragmentOrTop() {
@@ -776,11 +1064,28 @@ struct EPUBWebView: View {
     var onContentLoaded: (() -> Void)? = nil
     var onVisibleSection: ((Int, Double) -> Void)? = nil
 
+    @Query private var settings: [AppSettings]
+
+    private var customCSS: String? {
+        guard let appSettings = settings.first else { return nil }
+
+        return ReaderResources.generateCustomCSS(
+            fontFamily: appSettings.fontFamily,
+            fontSize: appSettings.fontSize,
+            lineHeight: appSettings.lineHeight,
+            paragraphSpacing: appSettings.paragraphSpacing,
+            marginWidth: appSettings.marginWidth,
+            backgroundColor: appSettings.backgroundColor,
+            textColor: appSettings.textColor
+        )
+    }
+
     var body: some View {
         EPUBWebViewRepresentable(
             html: chapter.content,
             highlights: highlights,
             marginNotes: marginNotes,
+            customCSS: customCSS,
             onTextSelected: onTextSelected,
             onHighlightTapped: onHighlightTapped,
             onMarginNoteAction: onMarginNoteAction,

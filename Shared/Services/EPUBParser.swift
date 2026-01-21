@@ -95,7 +95,7 @@ actor EPUBParser {
 
             // Handle data descriptor (bit 3 of general purpose flag)
             var actualCompressedSize = Int(compressedSize)
-            var actualUncompressedSize = Int(uncompressedSize)
+            let actualUncompressedSize = Int(uncompressedSize)
 
             if (generalPurpose & 0x08) != 0 && compressedSize == 0 {
                 // Data descriptor follows - need to find it by scanning
@@ -392,7 +392,6 @@ actor EPUBParser {
                 let title = decodeHTMLEntities(String(liContent[textRange])).trimmingCharacters(in: .whitespacesAndNewlines)
 
                 if !title.isEmpty {
-                    let chapterURL = baseURL.appendingPathComponent(href.removingPercentEncoding ?? href)
                     let filePath = href.components(separatedBy: "#").first ?? href
                     let contentURL = baseURL.appendingPathComponent(filePath.removingPercentEncoding ?? filePath)
                     let contentString = (try? String(contentsOf: contentURL, encoding: .utf8)) ?? ""

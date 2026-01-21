@@ -47,11 +47,13 @@ struct MarginNoteData: Codable, Equatable {
 struct BookAnnotations: Codable {
     let bookId: UUID
     var highlights: [Highlight]
+    var bookmarks: [Bookmark]
     var updatedAt: Date
 
-    init(bookId: UUID, highlights: [Highlight] = []) {
+    init(bookId: UUID, highlights: [Highlight] = [], bookmarks: [Bookmark] = []) {
         self.bookId = bookId
         self.highlights = highlights
+        self.bookmarks = bookmarks
         self.updatedAt = Date()
     }
 
@@ -71,6 +73,23 @@ struct BookAnnotations: Codable {
             updatedAt = Date()
         }
     }
+
+    mutating func addBookmark(_ bookmark: Bookmark) {
+        bookmarks.append(bookmark)
+        // Sort bookmarks by chapter index and creation date
+        bookmarks.sort { lhs, rhs in
+            if lhs.chapterIndex == rhs.chapterIndex {
+                return lhs.createdAt < rhs.createdAt
+            }
+            return lhs.chapterIndex < rhs.chapterIndex
+        }
+        updatedAt = Date()
+    }
+
+    mutating func removeBookmark(id: UUID) {
+        bookmarks.removeAll { $0.id == id }
+        updatedAt = Date()
+    }
 }
 
 /// A highlighted passage in a book
@@ -81,7 +100,9 @@ struct Highlight: Codable, Identifiable {
     let surroundingContext: String
     let cfiRange: CFIRange?  // Optional for backwards compatibility with existing highlights
     var threads: [Thread]
+    var annotation: String?  // User's personal note about this highlight
     let createdAt: Date
+    var updatedAt: Date
 
     init(
         id: UUID = UUID(),
@@ -90,6 +111,7 @@ struct Highlight: Codable, Identifiable {
         surroundingContext: String,
         cfiRange: CFIRange? = nil,
         threads: [Thread] = [],
+        annotation: String? = nil,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -98,7 +120,9 @@ struct Highlight: Codable, Identifiable {
         self.surroundingContext = surroundingContext
         self.cfiRange = cfiRange
         self.threads = threads
+        self.annotation = annotation
         self.createdAt = createdAt
+        self.updatedAt = createdAt
     }
 }
 
@@ -149,4 +173,33 @@ struct ThreadMessage: Codable, Identifiable {
 enum MessageRole: String, Codable {
     case user
     case assistant
+}
+
+/// A bookmark for quick navigation to a specific location in a book
+struct Bookmark: Codable, Identifiable {
+    let id: UUID
+    let chapterId: String
+    let chapterIndex: Int
+    let chapterTitle: String
+    let note: String?
+    let scrollPosition: Double  // 0.0 to 1.0 representing position in chapter
+    let createdAt: Date
+
+    init(
+        id: UUID = UUID(),
+        chapterId: String,
+        chapterIndex: Int,
+        chapterTitle: String,
+        note: String? = nil,
+        scrollPosition: Double = 0.0,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.chapterId = chapterId
+        self.chapterIndex = chapterIndex
+        self.chapterTitle = chapterTitle
+        self.note = note
+        self.scrollPosition = scrollPosition
+        self.createdAt = createdAt
+    }
 }

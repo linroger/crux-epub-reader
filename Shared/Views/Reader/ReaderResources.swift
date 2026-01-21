@@ -42,7 +42,7 @@ enum ReaderResources {
     }
 
     /// Loads and populates the HTML template with content
-    static func buildHTML(content: String, platform: Platform = .current) -> String? {
+    static func buildHTML(content: String, platform: Platform = .current, customCSS: String? = nil) -> String? {
         guard let templateURL = Bundle.main.url(forResource: "reader-template", withExtension: "html"),
               var template = try? String(contentsOf: templateURL, encoding: .utf8) else {
             return nil
@@ -52,6 +52,47 @@ enum ReaderResources {
             .replacingOccurrences(of: "{{PLATFORM}}", with: platform.rawValue)
             .replacingOccurrences(of: "{{CONTENT}}", with: content)
 
+        // Inject custom CSS if provided
+        if let customCSS = customCSS {
+            let styleTag = "<style>\n\(customCSS)\n</style>"
+            // Insert before </head> tag
+            if let headEnd = template.range(of: "</head>") {
+                template.insert(contentsOf: styleTag, at: headEnd.lowerBound)
+            }
+        }
+
         return template
+    }
+
+    /// Generates custom CSS from reader settings
+    static func generateCustomCSS(
+        fontFamily: String,
+        fontSize: Double,
+        lineHeight: Double,
+        paragraphSpacing: Double,
+        marginWidth: Double,
+        backgroundColor: String,
+        textColor: String
+    ) -> String {
+        return """
+        :root {
+            --crux-font-body: \(fontFamily == "System" ? "system-ui, -apple-system, BlinkMacSystemFont, sans-serif" : "\"\(fontFamily)\", Georgia, serif");
+            --crux-bg: \(backgroundColor);
+            --crux-text: \(textColor);
+        }
+
+        .crux-content {
+            font-size: \(fontSize)px;
+            line-height: \(lineHeight);
+        }
+
+        .crux-content p {
+            margin-bottom: \(paragraphSpacing)em;
+        }
+
+        .crux-margin {
+            flex-basis: \(marginWidth)px;
+        }
+        """
     }
 }
