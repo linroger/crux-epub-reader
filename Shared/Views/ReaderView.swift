@@ -128,13 +128,19 @@ struct ReaderView: View {
 
         // Add pending selection first (if any) - uncommitted
         if let pending = pendingSelection, let pendingId = pendingHighlightId {
+            // Check if there's an error for this pending highlight
+            let errorMsg = (loadingHighlightId == pendingId && threadState.error != nil)
+                ? threadState.error?.localizedDescription
+                : nil
+
             notes.append(MarginNoteData(
                 highlightId: pendingId.uuidString,
                 previewText: String(pending.text.prefix(100)),
                 isCommitted: false,
                 hasThread: false,
                 threadContent: nil,
-                isLoading: false
+                isLoading: false,
+                errorMessage: errorMsg
             ))
         }
 
@@ -142,6 +148,11 @@ struct ReaderView: View {
         for highlight in currentChapterHighlights {
             let thread = highlight.threads.first
             let isLoading = loadingHighlightId == highlight.id
+
+            // Check if there's an error for this highlight
+            let errorMsg = (loadingHighlightId == highlight.id && threadState.error != nil)
+                ? threadState.error?.localizedDescription
+                : nil
 
             // Build thread content HTML if there are messages
             var threadContent: String? = nil
@@ -159,7 +170,8 @@ struct ReaderView: View {
                 isCommitted: true,
                 hasThread: thread != nil,
                 threadContent: threadContent,
-                isLoading: isLoading
+                isLoading: isLoading,
+                errorMessage: errorMsg
             ))
         }
 
@@ -696,8 +708,21 @@ struct ReaderView: View {
                 }
 
             case .startThread(let highlightId):
-                // Provider configuration check will happen in ThreadPanel
+                // Check if AI provider is configured
                 guard threadState.isConfigured else {
+                    // Show error to user instead of silent failure
+                    let error = NSError(
+                        domain: "Crux",
+                        code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: "No AI provider configured. Please configure a provider in Settings."]
+                    )
+                    threadState.error = error
+
+                    // Set loading state to trigger margin note update with error
+                    loadingHighlightId = highlightId
+                    // Immediately clear to show error state
+                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+                    loadingHighlightId = nil
                     return
                 }
 
@@ -713,6 +738,9 @@ struct ReaderView: View {
                 }
 
                 guard let highlight = highlight else { return }
+
+                // Clear any previous errors
+                threadState.error = nil
 
                 // Set loading state - triggers margin note update
                 loadingHighlightId = highlightId

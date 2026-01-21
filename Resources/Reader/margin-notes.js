@@ -217,7 +217,19 @@ const CruxMarginNotes = {
         let html = '<div class="note-header"><div class="preview">' + this.escapeHTML(data.previewText) + '</div>';
         html += '<button class="crux-delete-highlight" title="Delete">\u00d7</button></div>';
 
-        if (data.isLoading) {
+        // Show error message if present
+        if (data.errorMessage) {
+            html += '<div class="crux-error">' + this.escapeHTML(data.errorMessage) + '</div>';
+            // Still show the Annotate button so user can retry after fixing
+            if (!data.isCommitted) {
+                html += '<div class="crux-selection-actions">' +
+                    '<button class="crux-commit-highlight">Highlight</button>' +
+                    '<button class="crux-start-thread">Annotate</button>' +
+                    '</div>';
+            } else {
+                html += '<button class="crux-start-thread">Retry</button>';
+            }
+        } else if (data.isLoading) {
             html += '<div class="crux-loading">' + (data.hasThread ? 'Thinking...' : 'Analyzing...') + '</div>';
         } else if (data.hasThread && data.threadContent) {
             html += '<div class="thread-content">' + data.threadContent + '</div>';

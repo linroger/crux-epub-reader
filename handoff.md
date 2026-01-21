@@ -1,8 +1,8 @@
 # Handoff.md - Crux EPUB Reader Enhancement Project
 
-**Last Updated (UTC):** 2026-01-21T22:30:00Z
-**Status:** In Progress - Testing Phase
-**Current Focus:** Systematic feature testing after completing critical bug fixes
+**Last Updated (UTC):** 2026-01-22T00:15:00Z
+**Status:** Ready for Manual Testing ✅
+**Current Focus:** User should follow PRE_FLIGHT_CHECKLIST.md to validate AI annotation features
 
 ## 1) Request & Context
 - **User's request:** Analyze the Crux EPUB reader codebase thoroughly, understand how components interact, and create a comprehensive plan for missing features to make the app fully polished and ready to ship. Specific requirements include multi-provider AI support, extensive customization options, notes management, CSV export, and macOS-native UI improvements.
@@ -336,3 +336,12 @@ Settings Model → AI Provider Protocol → Provider Implementations → Setting
   * Build succeeds cleanly
   * Committed: "Fix: Support reasoning models with reasoning_content field (glm-4.7, etc.)" (5418867)
   * **User action:** Click "Test Connection" again in Settings - should now succeed
+- 2026-01-22T00:15:00Z: **TESTING PREPARATION** - Ready for manual validation:
+  * Created PRE_FLIGHT_CHECKLIST.md with comprehensive testing guide
+  * All code-level improvements complete and committed
+  * Build verified clean (no errors, no warnings)
+  * Background test confirmed scholarly prompt quality (glm-4.7 produced graduate-level annotation)
+  * Documentation complete: handoff.md, QUICK_START.md, AI_ANNOTATION_TESTING_GUIDE.md, PRE_FLIGHT_CHECKLIST.md
+  * **STATUS:** Code complete, documentation complete, ready for end-to-end manual testing
+  * **NEXT:** User should follow PRE_FLIGHT_CHECKLIST.md to validate features in GUI
+  * All remaining tasks require user interaction with the application UI

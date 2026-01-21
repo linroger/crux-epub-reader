@@ -84,6 +84,7 @@ struct MarginNoteData: Codable, Equatable {
     let hasThread: Bool
     let threadContent: String?  // HTML for thread messages
     let isLoading: Bool
+    let errorMessage: String?  // Error message to display if annotation fails
 }
 
 /// All annotations for a single book, stored as JSON

@@ -38,5 +38,35 @@
     "stop_hook_active": false,
     "agent_id": "a601d01",
     "agent_transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/7e2633e3-09e3-40aa-932d-c9b4657db8f8/subagents/agent-a601d01.jsonl"
+  },
+  {
+    "session_id": "7e2633e3-09e3-40aa-932d-c9b4657db8f8",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/7e2633e3-09e3-40aa-932d-c9b4657db8f8.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "SubagentStop",
+    "stop_hook_active": false,
+    "agent_id": "a2f1618",
+    "agent_transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/7e2633e3-09e3-40aa-932d-c9b4657db8f8/subagents/agent-a2f1618.jsonl"
+  },
+  {
+    "session_id": "7e2633e3-09e3-40aa-932d-c9b4657db8f8",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/7e2633e3-09e3-40aa-932d-c9b4657db8f8.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "SubagentStop",
+    "stop_hook_active": false,
+    "agent_id": "acbca33",
+    "agent_transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/7e2633e3-09e3-40aa-932d-c9b4657db8f8/subagents/agent-acbca33.jsonl"
+  },
+  {
+    "session_id": "7e2633e3-09e3-40aa-932d-c9b4657db8f8",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/7e2633e3-09e3-40aa-932d-c9b4657db8f8.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "SubagentStop",
+    "stop_hook_active": false,
+    "agent_id": "ac19676",
+    "agent_transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/7e2633e3-09e3-40aa-932d-c9b4657db8f8/subagents/agent-ac19676.jsonl"
   }
 ]

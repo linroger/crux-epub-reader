@@ -54,5 +54,37 @@
     "permission_mode": "bypassPermissions",
     "hook_event_name": "Stop",
     "stop_hook_active": false
+  },
+  {
+    "session_id": "7e2633e3-09e3-40aa-932d-c9b4657db8f8",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/7e2633e3-09e3-40aa-932d-c9b4657db8f8.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "Stop",
+    "stop_hook_active": false
+  },
+  {
+    "session_id": "7e2633e3-09e3-40aa-932d-c9b4657db8f8",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/7e2633e3-09e3-40aa-932d-c9b4657db8f8.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "Stop",
+    "stop_hook_active": false
+  },
+  {
+    "session_id": "7e2633e3-09e3-40aa-932d-c9b4657db8f8",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/7e2633e3-09e3-40aa-932d-c9b4657db8f8.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "Stop",
+    "stop_hook_active": false
+  },
+  {
+    "session_id": "7e2633e3-09e3-40aa-932d-c9b4657db8f8",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/7e2633e3-09e3-40aa-932d-c9b4657db8f8.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "Stop",
+    "stop_hook_active": false
   }
 ]

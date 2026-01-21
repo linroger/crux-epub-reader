@@ -413,6 +413,25 @@ html, body {
     animation: spin 0.8s linear infinite;
 }
 
+/* Error state */
+.crux-error {
+    padding: 10px;
+    margin-bottom: 8px;
+    background: rgba(220, 38, 38, 0.1);
+    border-left: 3px solid rgba(220, 38, 38, 0.6);
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--crux-text);
+}
+
+@media (prefers-color-scheme: dark) {
+    .crux-error {
+        background: rgba(239, 68, 68, 0.15);
+        border-left-color: rgba(239, 68, 68, 0.7);
+    }
+}
+
 @keyframes spin {
     to {
         transform: rotate(360deg);
