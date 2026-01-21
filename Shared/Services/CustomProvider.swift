@@ -249,12 +249,18 @@ actor CustomProvider: AIProvider {
     }
 
     private func parseResponseBody(_ json: [String: Any]) throws -> String {
-        // Try OpenAI format first
+        // Try OpenAI format first (handles both standard and reasoning models)
         if let choices = json["choices"] as? [[String: Any]],
            let firstChoice = choices.first,
-           let message = firstChoice["message"] as? [String: Any],
-           let content = message["content"] as? String {
-            return content
+           let message = firstChoice["message"] as? [String: Any] {
+            // Standard models use "content"
+            if let content = message["content"] as? String {
+                return content
+            }
+            // Reasoning models (like glm-4.7) use "reasoning_content"
+            if let reasoningContent = message["reasoning_content"] as? String {
+                return reasoningContent
+            }
         }
 
         // Try Claude format
