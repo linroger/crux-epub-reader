@@ -85,6 +85,7 @@ struct BookHighlightRow: View {
     let onTap: () -> Void
 
     @State private var isHovering = false
+    @State private var showThreads = false
 
     var body: some View {
         Button(action: onTap) {
@@ -147,15 +148,66 @@ struct BookHighlightRow: View {
 
                     // Thread info if present
                     if !highlight.threads.isEmpty {
-                        HStack(spacing: 6) {
-                            Image(systemName: "bubble.left.and.bubble.right")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.tertiary)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    showThreads.toggle()
+                                }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: showThreads ? "chevron.down" : "chevron.right")
+                                        .font(.system(size: 9, weight: .semibold))
+                                        .foregroundStyle(.secondary)
 
-                            let messageCount = highlight.threads.reduce(0) { $0 + $1.messages.count }
-                            Text("\(highlight.threads.count) thread\(highlight.threads.count == 1 ? "" : "s"), \(messageCount) message\(messageCount == 1 ? "" : "s")")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.tertiary)
+                                    Image(systemName: "bubble.left.and.bubble.right.fill")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.blue)
+
+                                    let messageCount = highlight.threads.reduce(0) { $0 + $1.messages.count }
+                                    Text("\(highlight.threads.count) thread\(highlight.threads.count == 1 ? "" : "s"), \(messageCount) message\(messageCount == 1 ? "" : "s")")
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundStyle(.secondary)
+
+                                    Spacer()
+                                }
+                            }
+                            .buttonStyle(.plain)
+
+                            if showThreads {
+                                ForEach(highlight.threads) { thread in
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        ForEach(thread.messages) { message in
+                                            HStack(alignment: .top, spacing: 8) {
+                                                Image(systemName: message.role == .user ? "person.circle.fill" : "sparkles")
+                                                    .font(.system(size: 12))
+                                                    .foregroundStyle(message.role == .user ? .blue : .purple)
+
+                                                VStack(alignment: .leading, spacing: 4) {
+                                                    Text(message.role == .user ? "You" : "AI")
+                                                        .font(.system(size: 10, weight: .semibold))
+                                                        .foregroundStyle(message.role == .user ? .blue : .purple)
+
+                                                    Text(message.content)
+                                                        .font(.system(size: 12))
+                                                        .foregroundStyle(.primary)
+                                                        .fixedSize(horizontal: false, vertical: true)
+                                                }
+
+                                                Spacer()
+                                            }
+                                            .padding(8)
+                                            .background(
+                                                message.role == .user
+                                                    ? Color.blue.opacity(0.08)
+                                                    : Color.purple.opacity(0.08)
+                                            )
+                                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                                        }
+                                    }
+                                    .padding(.leading, 8)
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                                }
+                            }
                         }
                         .padding(.leading, 12)
                     }

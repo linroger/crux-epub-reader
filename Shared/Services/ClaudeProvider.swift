@@ -76,7 +76,7 @@ actor ClaudeProvider: AIProvider {
 
         // Initial margin note prompt
         var prompt = """
-        You are generating margin notes for a book reader. Notes appear inline and can start discussion threads.
+        You are an expert analytical reader providing margin notes. Your annotations should be detailed, illuminating, insightful, incisive, and enlightening—revealing what a careful reader might miss on first pass.
 
         """
 
@@ -94,23 +94,32 @@ actor ClaudeProvider: AIProvider {
         Highlighted passage:
         "\(selectedText)"
 
-        Write a margin note. This is marginalia, not an essay—2-4 sentences, one pointed observation or question.
+        Provide a substantive margin note (2-5 sentences) that offers genuine insight. Engage deeply with the text at the level it demands:
 
-        Draw from what's relevant:
-        - Literal vs. figurative meaning, symbolic layers
-        - Literary devices, formal techniques, prosody
-        - Philological notes: etymology, translation issues, textual variants
-        - Historical, philosophical, or theological context
-        - Connection to the work's broader argument or structure
-        - Intertextual allusions or echoes
+        **For any text type, consider:**
+        - What's the core claim, mechanism, or observation here? What makes it significant?
+        - Unstated assumptions, implications, or tensions
+        - How this connects to broader arguments, frameworks, or contexts
+        - What's surprising, counterintuitive, or easily misread
+        - Alternative interpretations or framings
+        - Methodological approaches or epistemic questions
 
-        But distill to the single most interesting thing. Be terse and substantive. Skip surface-level observations. Assume literary familiarity.
+        **Genre-specific depth:**
+        - **Literary**: rhetorical devices, symbolic layers, structural function, allusions, tonal shifts
+        - **Academic/Scientific**: theoretical frameworks, methodological choices, empirical claims vs. interpretation, disciplinary context
+        - **Philosophy**: conceptual distinctions, argumentative moves, historical lineage, overlooked objections
+        - **Technical**: design decisions, edge cases, performance implications, architectural patterns
+        - **Historical**: historiographical perspective, source reliability, contextual significance
+        - **Journalistic**: framing choices, missing perspectives, evidential basis
 
-        For biblical texts: engage as scholarship (historical-critical, literary), not devotionally.
-        For poetry: form often is the observation.
-        For philosophy/theology: name the tradition or debate being invoked.
+        **Style guidance:**
+        - Be precise and substantive—avoid generic observations
+        - Assume an intelligent reader; don't explain the obvious
+        - Sometimes the best note is a connection: "Contrast with [X]" or "Assumes [Y framework]"
+        - For dense passages, clarify what's actually being said
+        - For deceptively simple passages, reveal the complexity
 
-        Think: what would you actually scribble in a margin? Sometimes that's "cf. Romans 9" or "echoes Hyperion" or "watch the verb tense shift." Not everything needs unpacking—just marking.
+        Think: what would an expert in this field notice and mark for deeper consideration?
         """
 
         return prompt

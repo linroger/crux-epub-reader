@@ -7,6 +7,7 @@ struct ReaderView: View {
     let bookId: UUID
 
     @Environment(AppState.self) private var appState
+    @Environment(AIProviderManager.self) private var providerManager
     @Environment(\.modelContext) private var modelContext
     @Query private var storedBooks: [StoredBook]
     @Query private var settings: [AppSettings]
@@ -523,6 +524,9 @@ struct ReaderView: View {
             await loadState()
         }
         .onAppear {
+            // Initialize AI provider for thread state
+            threadState.setProviderManager(providerManager)
+
             // Initialize and start reading session tracking
             sessionManager = ReadingSessionManager(
                 modelContext: modelContext,
