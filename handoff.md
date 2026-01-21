@@ -354,6 +354,19 @@ Settings Model → AI Provider Protocol → Provider Implementations → Setting
   * Updated feature_list.json to mark 8 P1 features as completed (ai_001-008, settings_001-002)
   * Verified implementations: Multi-provider AI system (Claude/OpenAI/Custom), Settings UI (977 lines), Notes View (852 lines), Export functionality
   * Created NEXT_STEPS.md with testing & polish action plan
+- 2026-01-22T03:15:00Z: **UI POLISH SESSION** - Enhanced onboarding and user experience:
+  * LibraryView: Completely redesigned empty state with welcoming hero icon, quick start guide, and 3 onboarding tips
+  * ThreadPanel: Created AILoadingView component with animated rotating sparkles icon and provider name display
+  * ThreadPanel: Added ThreadEmptyStateView with helpful tips when no text is selected
+  * LibraryView: Added keyboard shortcut tooltip (⌘O) to Add Book button for better discoverability
+  * KeyboardShortcutsView: Updated shortcuts list to include Statistics (⌘⇧S), Goals (⌘⇧G), and Streaks (⌘⇧T)
+  * KeyboardShortcutsView: Added Help section documenting ⌘/ keyboard shortcuts guide
+  * CruxApp: Changed Streaks shortcut from ⌘⇧A to ⌘⇧T to avoid future conflicts with "Ask AI" features
+  * Visual improvements: Consistent gradient designs, clear iconography with SF Symbols, informative microcopy
+  * Build verified successful (exit code 0)
+  * Committed: "UI Polish: Enhance onboarding, loading states, and keyboard shortcuts" (6332fb0)
+  * Pushed to feature/next-improvements branch
+  * **STATUS:** All UI polish quick wins completed, app now has polished onboarding and helpful empty states
   * **Key Discovery**: Most planning features are already implemented and working
   * **Next Priority**: Comprehensive end-to-end testing to identify real gaps
   * **Status**: Ready for QA phase - shift focus from implementation to testing & polish
