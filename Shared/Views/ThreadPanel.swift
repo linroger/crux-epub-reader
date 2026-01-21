@@ -323,30 +323,7 @@ struct ThreadContentView: View {
 
                         // Start thread button or loading state
                         if state.isLoading && state.currentThread == nil {
-                            VStack(spacing: 12) {
-                                ProgressView()
-                                    .scaleEffect(1.0)
-
-                                VStack(spacing: 4) {
-                                    Text("Analyzing passage...")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.primary)
-
-                                    Text(providerManager.activeProviderName ?? "AI")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(
-                                LinearGradient(
-                                    colors: [Color.purple.opacity(0.08), Color.blue.opacity(0.08)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            AILoadingView(providerName: providerManager.activeProviderName ?? "AI")
                         } else if state.currentThread == nil {
                             if state.isConfigured {
                                 Button {
@@ -555,8 +532,13 @@ struct ThreadContentView: View {
                         )
                     }
 
-                    // Existing highlights for this chapter
+                    // Empty state when no selection and no thread
                     let chapterHighlights = annotations.highlights.filter { $0.chapterId == chapter?.id }
+                    if pendingSelection == nil && state.currentThread == nil && chapterHighlights.isEmpty {
+                        ThreadEmptyStateView()
+                    }
+
+                    // Existing highlights for this chapter
                     if !chapterHighlights.isEmpty && pendingSelection == nil {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack(spacing: 6) {
@@ -755,6 +737,168 @@ struct HighlightRow: View {
         .animation(.easeInOut(duration: 0.15), value: isHovered)
         .onHover { hovering in
             isHovered = hovering
+        }
+    }
+}
+
+// MARK: - AI Loading View
+
+struct AILoadingView: View {
+    let providerName: String
+    @State private var isAnimating = false
+
+    var body: some View {
+        VStack(spacing: 16) {
+            // Animated sparkles icon
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.purple.opacity(0.15), Color.blue.opacity(0.15)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 56, height: 56)
+
+                Image(systemName: "sparkles")
+                    .font(.system(size: 24))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Color.purple, Color.blue],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .rotationEffect(.degrees(isAnimating ? 360 : 0))
+                    .animation(.linear(duration: 2).repeatForever(autoreverses: false), value: isAnimating)
+            }
+
+            VStack(spacing: 6) {
+                Text("Analyzing passage...")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.primary)
+
+                HStack(spacing: 4) {
+                    Image(systemName: "cpu")
+                        .font(.system(size: 11))
+                    Text(providerName)
+                        .font(.system(size: 12))
+                }
+                .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(20)
+        .background(
+            LinearGradient(
+                colors: [Color.purple.opacity(0.08), Color.blue.opacity(0.08)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.purple.opacity(0.2), Color.blue.opacity(0.2)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .onAppear {
+            isAnimating = true
+        }
+    }
+}
+
+// MARK: - Thread Empty State View
+
+struct ThreadEmptyStateView: View {
+    var body: some View {
+        VStack(spacing: 24) {
+            // Icon
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.purple.opacity(0.1), Color.blue.opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 80, height: 80)
+
+                Image(systemName: "text.bubble")
+                    .font(.system(size: 32, weight: .light))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Color.purple, Color.blue],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
+
+            VStack(spacing: 8) {
+                Text("No Active Thread")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.primary)
+
+                Text("Select text to start an AI conversation")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            // Tips
+            VStack(alignment: .leading, spacing: 12) {
+                EmptyStateTip(
+                    icon: "hand.tap",
+                    text: "Highlight any passage in the text"
+                )
+
+                EmptyStateTip(
+                    icon: "sparkles",
+                    text: "AI will provide contextual insights"
+                )
+
+                EmptyStateTip(
+                    icon: "bubble.left.and.bubble.right",
+                    text: "Continue the conversation with follow-ups"
+                )
+            }
+            .padding(16)
+            .background(Color.secondary.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.secondary.opacity(0.1), lineWidth: 1)
+            )
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(32)
+    }
+}
+
+struct EmptyStateTip: View {
+    let icon: String
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 16))
+                .foregroundStyle(.blue)
+                .frame(width: 20)
+
+            Text(text)
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

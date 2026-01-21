@@ -66,7 +66,7 @@ struct CruxApp: App {
                 Button("Streaks & Achievements") {
                     openWindow(id: "streaks")
                 }
-                .keyboardShortcut("a", modifiers: [.command, .shift])
+                .keyboardShortcut("t", modifiers: [.command, .shift])
 
                 Button("Keyboard Shortcuts") {
                     openWindow(id: "keyboard-shortcuts", value: true)
