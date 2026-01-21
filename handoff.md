@@ -327,3 +327,12 @@ Settings Model → AI Provider Protocol → Provider Implementations → Setting
   * Build succeeds cleanly, app ready for AI annotation testing
   * Committed: "Improve AI annotation: extend timeout to 5min, enhance scholarly prompt, remove TTS dependency" (ac60f20)
   * **BLOCKER REMOVED:** AI annotation feature fully functional with professional-grade prompt
+- 2026-01-21T23:45:00Z: **BUG FIX** - Reasoning model support:
+  * User reported "Received invalid response from API" when testing glm-4.7 connection in Settings
+  * **Root cause:** glm-4.7 is a reasoning model that returns `reasoning_content` instead of `content` field
+  * **Fix:** Updated CustomProvider parseResponseBody() to check both `content` and `reasoning_content`
+  * Maintains compatibility with standard models (Claude, OpenAI) and reasoning models (glm-4.7, etc.)
+  * Verified with direct curl test: glm-4.7 responds with reasoning_content successfully
+  * Build succeeds cleanly
+  * Committed: "Fix: Support reasoning models with reasoning_content field (glm-4.7, etc.)" (5418867)
+  * **User action:** Click "Test Connection" again in Settings - should now succeed
