@@ -1,5 +1,48 @@
 import Foundation
 
+/// Category for organizing annotations
+enum AnnotationCategory: String, Codable, CaseIterable, Identifiable {
+    case quote = "Quote"
+    case analysis = "Analysis"
+    case question = "Question"
+    case important = "Important"
+    case reference = "Reference"
+    case definition = "Definition"
+    case example = "Example"
+    case personal = "Personal Note"
+    case other = "Other"
+
+    var id: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .quote: return "quote.bubble"
+        case .analysis: return "brain.head.profile"
+        case .question: return "questionmark.circle"
+        case .important: return "star.fill"
+        case .reference: return "link"
+        case .definition: return "book.closed"
+        case .example: return "lightbulb"
+        case .personal: return "person.fill"
+        case .other: return "tag"
+        }
+    }
+
+    var color: String {
+        switch self {
+        case .quote: return "#3B82F6"  // blue
+        case .analysis: return "#8B5CF6"  // purple
+        case .question: return "#F59E0B"  // amber
+        case .important: return "#EF4444"  // red
+        case .reference: return "#10B981"  // green
+        case .definition: return "#06B6D4"  // cyan
+        case .example: return "#F97316"  // orange
+        case .personal: return "#EC4899"  // pink
+        case .other: return "#6B7280"  // gray
+        }
+    }
+}
+
 /// Represents a CFI (Canonical Fragment Identifier) range within a chapter
 /// CFI is the EPUB standard for referencing locations in content documents
 struct CFIRange: Codable, Equatable {
@@ -101,6 +144,8 @@ struct Highlight: Codable, Identifiable {
     let cfiRange: CFIRange?  // Optional for backwards compatibility with existing highlights
     var threads: [Thread]
     var annotation: String?  // User's personal note about this highlight
+    var category: AnnotationCategory  // Category for organization
+    var tags: [String]  // Custom tags for flexible organization
     let createdAt: Date
     var updatedAt: Date
 
@@ -112,6 +157,8 @@ struct Highlight: Codable, Identifiable {
         cfiRange: CFIRange? = nil,
         threads: [Thread] = [],
         annotation: String? = nil,
+        category: AnnotationCategory = .other,
+        tags: [String] = [],
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -121,6 +168,8 @@ struct Highlight: Codable, Identifiable {
         self.cfiRange = cfiRange
         self.threads = threads
         self.annotation = annotation
+        self.category = category
+        self.tags = tags
         self.createdAt = createdAt
         self.updatedAt = createdAt
     }
@@ -183,6 +232,8 @@ struct Bookmark: Codable, Identifiable {
     let chapterTitle: String
     let note: String?
     let scrollPosition: Double  // 0.0 to 1.0 representing position in chapter
+    var category: AnnotationCategory  // Category for organization
+    var tags: [String]  // Custom tags for flexible organization
     let createdAt: Date
 
     init(
@@ -192,6 +243,8 @@ struct Bookmark: Codable, Identifiable {
         chapterTitle: String,
         note: String? = nil,
         scrollPosition: Double = 0.0,
+        category: AnnotationCategory = .other,
+        tags: [String] = [],
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -200,6 +253,8 @@ struct Bookmark: Codable, Identifiable {
         self.chapterTitle = chapterTitle
         self.note = note
         self.scrollPosition = scrollPosition
+        self.category = category
+        self.tags = tags
         self.createdAt = createdAt
     }
 }

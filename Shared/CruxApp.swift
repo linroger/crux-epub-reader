@@ -128,4 +128,7 @@ final class AppState {
     var showOpenPanel = false
     var selectedBookId: UUID?
     var searchHistoryService = SearchHistoryService()
+    var themeManager = ThemeManager()
+    var tagManagementService = TagManagementService()
+    var ttsService = TextToSpeechService()
 }

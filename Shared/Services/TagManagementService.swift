@@ -22,7 +22,6 @@ class TagManagementService {
     func updateTagCache() {
         guard let modelContext = modelContext else { return }
 
-        var tagSet = Set<String>()
         let storage = BookStorage.shared
 
         // Fetch all stored books
@@ -31,6 +30,8 @@ class TagManagementService {
 
         // Extract tags from each book's annotations
         Task {
+            var tagSet = Set<String>()
+
             for book in books {
                 if let annotations = try? await storage.loadAnnotations(for: book.id) {
                     // Collect tags from highlights
@@ -114,15 +115,9 @@ class TagManagementService {
     }
 
     /// Get category statistics for a book
-    func getCategoryStats(forBookId bookId: UUID) -> [AnnotationCategory: Int] {
-        guard let modelContext = modelContext else { return [:] }
-
-        let descriptor = FetchDescriptor<StoredBook>(
-            predicate: #Predicate { $0.id == bookId }
-        )
-        guard let book = try? modelContext.fetch(descriptor).first,
-              let annotationsData = book.annotationsJSON?.data(using: .utf8),
-              let annotations = try? JSONDecoder().decode(BookAnnotations.self, from: annotationsData) else {
+    func getCategoryStats(forBookId bookId: UUID) async -> [AnnotationCategory: Int] {
+        let storage = BookStorage.shared
+        guard let annotations = try? await storage.loadAnnotations(for: bookId) else {
             return [:]
         }
 
@@ -140,15 +135,9 @@ class TagManagementService {
     }
 
     /// Get tag statistics for a book
-    func getTagStats(forBookId bookId: UUID) -> [String: Int] {
-        guard let modelContext = modelContext else { return [:] }
-
-        let descriptor = FetchDescriptor<StoredBook>(
-            predicate: #Predicate { $0.id == bookId }
-        )
-        guard let book = try? modelContext.fetch(descriptor).first,
-              let annotationsData = book.annotationsJSON?.data(using: .utf8),
-              let annotations = try? JSONDecoder().decode(BookAnnotations.self, from: annotationsData) else {
+    func getTagStats(forBookId bookId: UUID) async -> [String: Int] {
+        let storage = BookStorage.shared
+        guard let annotations = try? await storage.loadAnnotations(for: bookId) else {
             return [:]
         }
 

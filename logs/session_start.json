@@ -261,5 +261,36 @@
     "hook_event_name": "SessionStart",
     "source": "compact",
     "model": "claude-sonnet-4-5-20250929"
+  },
+  {
+    "session_id": "6bb30ac0-0dad-4f6c-8989-7d5d2249f8cf",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/6bb30ac0-0dad-4f6c-8989-7d5d2249f8cf.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "hook_event_name": "SessionStart",
+    "source": "compact",
+    "model": "claude-sonnet-4-5-20250929"
+  },
+  {
+    "session_id": "7e2633e3-09e3-40aa-932d-c9b4657db8f8",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/7e2633e3-09e3-40aa-932d-c9b4657db8f8.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "hook_event_name": "SessionStart",
+    "source": "compact",
+    "model": "claude-sonnet-4-5-20250929"
+  },
+  {
+    "session_id": "dccfbb75-6e6a-4bea-9743-039e2a74c331",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/dccfbb75-6e6a-4bea-9743-039e2a74c331.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "hook_event_name": "SessionStart",
+    "source": "startup"
+  },
+  {
+    "session_id": "6bb30ac0-0dad-4f6c-8989-7d5d2249f8cf",
+    "transcript_path": "/Users/rogerlin/.claude/projects/-Users-rogerlin-XCode-Projects-crux/6bb30ac0-0dad-4f6c-8989-7d5d2249f8cf.jsonl",
+    "cwd": "/Users/rogerlin/XCode-Projects/crux",
+    "hook_event_name": "SessionStart",
+    "source": "compact",
+    "model": "claude-sonnet-4-5-20250929"
   }
 ]

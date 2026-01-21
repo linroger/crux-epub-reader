@@ -8,6 +8,7 @@ struct ContentView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \StoredBook.lastOpenedAt, order: .reverse) private var storedBooks: [StoredBook]
+    @Query private var settings: [AppSettings]
 
     @State private var selectedBook: Book?
     @State private var isLoading = false
@@ -53,6 +54,7 @@ struct ContentView: View {
                 )
             }
         }
+        .preferredColorScheme(appState.themeManager.colorScheme)
         .onChange(of: appState.selectedBookId) { _, newId in
             if let newId {
                 Task { await loadBook(id: newId) }
@@ -84,8 +86,14 @@ struct ContentView: View {
         .task {
             await recoverOrphanedBooks()
 
-            // Initialize search history service
+            // Initialize services
             appState.searchHistoryService.configure(modelContext: modelContext)
+            appState.tagManagementService.configure(modelContext: modelContext)
+
+            // Configure theme manager
+            if let appSettings = settings.first {
+                appState.themeManager.configure(settings: appSettings)
+            }
         }
     }
 
