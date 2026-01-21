@@ -74,6 +74,7 @@ enum MarginNoteAction {
     case startThread(highlightId: UUID)
     case sendFollowUp(highlightId: UUID, message: String)
     case deleteHighlight(highlightId: UUID)
+    case openSettings
 }
 
 /// Data to send to JavaScript for rendering margin notes

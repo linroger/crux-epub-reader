@@ -789,6 +789,20 @@ struct ReaderView: View {
                 // Clear loading state
                 loadingHighlightId = nil
 
+            case .openSettings:
+                // Open Settings window using the standard keyboard shortcut
+                #if os(macOS)
+                if #available(macOS 13, *) {
+                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                } else {
+                    NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+                }
+                #else
+                // On iOS, the app structure should handle this
+                // For now, we'll just log - this could be extended with a notification
+                print("Settings requested from reader view")
+                #endif
+
             case .deleteHighlight(let highlightId):
                 // If deleting a pending selection, just clear it
                 if pendingHighlightId == highlightId {

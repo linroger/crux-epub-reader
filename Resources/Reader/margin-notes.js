@@ -3,6 +3,8 @@ const CruxMarginNotes = {
     notes: new Map(),
     marginLeft: null,
     marginRight: null,
+    loadingTimers: new Map(), // Track loading start times
+    loadingIntervals: new Map(), // Track update intervals
 
     init: function() {
         this.marginLeft = document.querySelector('.crux-margin-left');
@@ -72,6 +74,14 @@ const CruxMarginNotes = {
                 window.webkit.messageHandlers.marginNoteAction.postMessage({
                     action: 'commitHighlight',
                     highlightId: note.dataset.highlightId
+                });
+                return;
+            }
+
+            const settingsBtn = e.target.closest('.crux-open-settings');
+            if (settingsBtn) {
+                window.webkit.messageHandlers.marginNoteAction.postMessage({
+                    action: 'openSettings'
                 });
                 return;
             }
@@ -219,7 +229,14 @@ const CruxMarginNotes = {
 
         // Show error message if present
         if (data.errorMessage) {
-            html += '<div class="crux-error">' + this.escapeHTML(data.errorMessage) + '</div>';
+            // Stop loading timer if it exists
+            this.stopLoadingTimer(data.highlightId);
+            html += '<div class="crux-error">' +
+                    this.escapeHTML(data.errorMessage) +
+                    '<div class="crux-error-actions">' +
+                    '<button class="crux-open-settings">⚙️ Open Settings</button>' +
+                    '</div>' +
+                    '</div>';
             // Still show the Annotate button so user can retry after fixing
             if (!data.isCommitted) {
                 html += '<div class="crux-selection-actions">' +
@@ -230,8 +247,15 @@ const CruxMarginNotes = {
                 html += '<button class="crux-start-thread">Retry</button>';
             }
         } else if (data.isLoading) {
-            html += '<div class="crux-loading">' + (data.hasThread ? 'Thinking...' : 'Analyzing...') + '</div>';
+            // Start or update loading timer
+            this.startLoadingTimer(data.highlightId, data.hasThread);
+            html += '<div class="crux-loading" data-highlight-id="' + data.highlightId + '">' +
+                    (data.hasThread ? 'Thinking...' : 'Analyzing...') +
+                    '</div>';
         } else if (data.hasThread && data.threadContent) {
+            // Stop loading timer if it exists
+            this.stopLoadingTimer(data.highlightId);
+
             html += '<div class="thread-content">' + data.threadContent + '</div>';
             // No inline input - using floating input bar instead
         } else if (!data.isCommitted) {
@@ -261,6 +285,47 @@ const CruxMarginNotes = {
             note.remove();
         }
         this.notes.clear();
+        // Clear all timers
+        for (const [id, interval] of this.loadingIntervals.entries()) {
+            clearInterval(interval);
+        }
+        this.loadingTimers.clear();
+        this.loadingIntervals.clear();
+    },
+
+    startLoadingTimer: function(highlightId, hasThread) {
+        // Don't restart if already running
+        if (this.loadingTimers.has(highlightId)) {
+            return;
+        }
+
+        const startTime = Date.now();
+        this.loadingTimers.set(highlightId, startTime);
+
+        const updateInterval = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const loadingEl = document.querySelector('.crux-loading[data-highlight-id="' + highlightId + '"]');
+
+            if (loadingEl) {
+                const baseMsg = hasThread ? 'Thinking' : 'Analyzing';
+                const timeMsg = elapsed > 0 ? ' (' + elapsed + 's)' : '';
+                loadingEl.textContent = baseMsg + '...' + timeMsg;
+            } else {
+                // Element no longer exists, stop timer
+                this.stopLoadingTimer(highlightId);
+            }
+        }, 1000);
+
+        this.loadingIntervals.set(highlightId, updateInterval);
+    },
+
+    stopLoadingTimer: function(highlightId) {
+        const interval = this.loadingIntervals.get(highlightId);
+        if (interval) {
+            clearInterval(interval);
+            this.loadingIntervals.delete(highlightId);
+        }
+        this.loadingTimers.delete(highlightId);
     },
 
     getDocumentOffset: function(el) {

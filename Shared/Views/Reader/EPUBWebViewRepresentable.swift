@@ -207,21 +207,29 @@ class WebViewCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler
                 }
             }
         } else if message.name == "marginNoteAction", let body = message.body as? [String: Any] {
-            guard let action = body["action"] as? String,
-                  let idString = body["highlightId"] as? String,
-                  let highlightId = UUID(uuidString: idString) else { return }
+            guard let action = body["action"] as? String else { return }
 
             let noteAction: MarginNoteAction
             switch action {
-            case "commitHighlight":
-                noteAction = .commitHighlight(highlightId: highlightId)
-            case "startThread":
-                noteAction = .startThread(highlightId: highlightId)
-            case "sendFollowUp":
-                let message = body["message"] as? String ?? ""
-                noteAction = .sendFollowUp(highlightId: highlightId, message: message)
-            case "deleteHighlight":
-                noteAction = .deleteHighlight(highlightId: highlightId)
+            case "openSettings":
+                noteAction = .openSettings
+            case "commitHighlight", "startThread", "sendFollowUp", "deleteHighlight":
+                guard let idString = body["highlightId"] as? String,
+                      let highlightId = UUID(uuidString: idString) else { return }
+
+                switch action {
+                case "commitHighlight":
+                    noteAction = .commitHighlight(highlightId: highlightId)
+                case "startThread":
+                    noteAction = .startThread(highlightId: highlightId)
+                case "sendFollowUp":
+                    let message = body["message"] as? String ?? ""
+                    noteAction = .sendFollowUp(highlightId: highlightId, message: message)
+                case "deleteHighlight":
+                    noteAction = .deleteHighlight(highlightId: highlightId)
+                default:
+                    return
+                }
             default:
                 return
             }

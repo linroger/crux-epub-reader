@@ -221,6 +221,20 @@ html, body {
     font-size: 13px;
     line-height: 1.5;
     color: var(--crux-text);
+    opacity: 0;
+    animation: fadeIn 0.3s ease-out forwards;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .crux-margin-right .crux-margin-note {
@@ -271,29 +285,95 @@ html, body {
 
 .crux-margin-note .thread-content {
     margin-bottom: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+/* Scrollbar styling for thread content */
+.crux-margin-note .thread-content::-webkit-scrollbar {
+    width: 4px;
+}
+
+.crux-margin-note .thread-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.crux-margin-note .thread-content::-webkit-scrollbar-thumb {
+    background: var(--crux-rule);
+    border-radius: 2px;
 }
 
 .crux-margin-note .thread-message {
-    margin-bottom: 10px;
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    animation: messageSlideIn 0.3s ease-out;
+    transition: background 0.2s ease;
+}
+
+@keyframes messageSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .crux-margin-note .thread-message.user {
     font-style: italic;
     color: var(--crux-text-muted);
     font-size: 12px;
+    background: rgba(139, 69, 19, 0.06);
+    border-left: 2px solid rgba(139, 69, 19, 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+    .crux-margin-note .thread-message.user {
+        background: rgba(212, 165, 116, 0.08);
+        border-left-color: rgba(212, 165, 116, 0.4);
+    }
 }
 
 .crux-margin-note .thread-message.user::before {
-    content: "You: ";
-    font-weight: 500;
+    content: "👤 ";
+    font-style: normal;
 }
 
 .crux-margin-note .thread-message.assistant {
     color: var(--crux-text);
+    background: rgba(139, 69, 19, 0.04);
+    border-left: 2px solid rgba(139, 69, 19, 0.2);
+    line-height: 1.6;
+}
+
+@media (prefers-color-scheme: dark) {
+    .crux-margin-note .thread-message.assistant {
+        background: rgba(212, 165, 116, 0.05);
+        border-left-color: rgba(212, 165, 116, 0.25);
+    }
+}
+
+.crux-margin-note .thread-message.assistant::before {
+    content: "✨ ";
+}
+
+/* Typography within messages */
+.crux-margin-note .thread-message p {
+    margin: 0 0 0.75em 0;
+    line-height: 1.6;
+}
+
+.crux-margin-note .thread-message p:last-child {
+    margin-bottom: 0;
 }
 
 .crux-margin-note .thread-message strong {
     font-weight: 600;
+    color: var(--crux-accent);
 }
 
 .crux-margin-note .thread-message em {
@@ -304,8 +384,32 @@ html, body {
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
     font-size: 0.9em;
     background: var(--crux-rule);
-    padding: 1px 4px;
+    padding: 2px 5px;
     border-radius: 3px;
+    font-weight: 500;
+}
+
+.crux-margin-note .thread-message pre {
+    background: var(--crux-rule);
+    padding: 8px;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 0.5em 0;
+}
+
+.crux-margin-note .thread-message pre code {
+    background: transparent;
+    padding: 0;
+}
+
+.crux-margin-note .thread-message ul,
+.crux-margin-note .thread-message ol {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+}
+
+.crux-margin-note .thread-message li {
+    margin-bottom: 0.25em;
 }
 
 .crux-selection-actions {
@@ -324,11 +428,20 @@ html, body {
     font-family: var(--crux-font-ui);
     color: var(--crux-text);
     cursor: pointer;
+    transition: all 0.15s ease;
+    transform: scale(1);
 }
 
 .crux-commit-highlight:hover,
 .crux-start-thread:hover {
     background: var(--crux-rule);
+    transform: scale(1.03);
+    border-color: var(--crux-accent);
+}
+
+.crux-commit-highlight:active,
+.crux-start-thread:active {
+    transform: scale(0.98);
 }
 
 .crux-margin-note.active {
@@ -401,6 +514,7 @@ html, body {
     gap: 6px;
     color: var(--crux-text-muted);
     font-size: 12px;
+    animation: pulse 2s ease-in-out infinite;
 }
 
 .crux-loading::before {
@@ -411,6 +525,20 @@ html, body {
     border-top-color: var(--crux-accent);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
+}
+
+/* Pulse the entire margin note during loading */
+.crux-margin-note:has(.crux-loading) {
+    animation: fadeIn 0.3s ease-out forwards, notePulse 2s ease-in-out infinite;
+}
+
+@keyframes notePulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(139, 69, 19, 0);
+    }
+    50% {
+        box-shadow: 0 0 12px 2px rgba(139, 69, 19, 0.15);
+    }
 }
 
 /* Error state */
@@ -429,6 +557,41 @@ html, body {
     .crux-error {
         background: rgba(239, 68, 68, 0.15);
         border-left-color: rgba(239, 68, 68, 0.7);
+    }
+}
+
+.crux-error-actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 6px;
+}
+
+.crux-open-settings {
+    appearance: none;
+    border: 1px solid rgba(220, 38, 38, 0.3);
+    background: var(--crux-bg);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-family: var(--crux-font-ui);
+    color: var(--crux-text);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.crux-open-settings:hover {
+    background: rgba(220, 38, 38, 0.08);
+    border-color: rgba(220, 38, 38, 0.5);
+    transform: scale(1.02);
+}
+
+@media (prefers-color-scheme: dark) {
+    .crux-open-settings {
+        border-color: rgba(239, 68, 68, 0.4);
+    }
+    .crux-open-settings:hover {
+        background: rgba(239, 68, 68, 0.12);
+        border-color: rgba(239, 68, 68, 0.6);
     }
 }
 
