@@ -638,6 +638,7 @@ struct LibraryMainView: View {
         Button(action: onAddBook) {
             Label("Add Book", systemImage: "plus")
         }
+        .help("Open EPUB file (⌘O)")
     }
 
     @ViewBuilder
@@ -1696,31 +1697,122 @@ struct EmptyLibraryView: View {
     let onAddBook: () -> Void
 
     var body: some View {
-        VStack(spacing: 24) {
-            VStack(spacing: 8) {
-                Text("Your library is empty")
-                    .font(.system(size: 20, weight: .medium, design: .serif))
+        VStack(spacing: 32) {
+            // Hero icon
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.blue.opacity(0.15), Color.purple.opacity(0.15)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 120, height: 120)
+
+                Image(systemName: "books.vertical")
+                    .font(.system(size: 48, weight: .light))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Color.blue, Color.purple],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
+
+            VStack(spacing: 12) {
+                Text("Welcome to Crux")
+                    .font(.system(size: 28, weight: .semibold, design: .rounded))
                     .foregroundStyle(.primary)
 
-                Text("Add an EPUB to start reading")
-                    .font(.system(size: 15, design: .serif))
+                Text("Your AI-powered reading companion")
+                    .font(.system(size: 16, design: .rounded))
                     .foregroundStyle(.secondary)
             }
 
+            // Quick start guide
+            VStack(alignment: .leading, spacing: 16) {
+                QuickStartTip(
+                    icon: "plus.circle.fill",
+                    title: "Add your first book",
+                    description: "Click below or drag an EPUB file anywhere"
+                )
+
+                QuickStartTip(
+                    icon: "keyboard",
+                    title: "Keyboard shortcut",
+                    description: "Press ⌘O to open a book quickly",
+                    accentColor: .blue
+                )
+
+                QuickStartTip(
+                    icon: "sparkles",
+                    title: "AI annotations",
+                    description: "Highlight text to get AI-powered insights",
+                    accentColor: .purple
+                )
+            }
+            .padding(24)
+            .background(Color.secondary.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.secondary.opacity(0.1), lineWidth: 1)
+            )
+            .frame(maxWidth: 400)
+
             Button(action: onAddBook) {
-                HStack(spacing: 6) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 13, weight: .semibold))
-                    Text("Add Book")
-                        .font(.system(size: 14, weight: .medium))
+                HStack(spacing: 8) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 16))
+                    Text("Add Your First Book")
+                        .font(.system(size: 16, weight: .semibold))
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 14)
             }
             .buttonStyle(.borderedProminent)
-            .tint(.primary.opacity(0.8))
+            .tint(
+                LinearGradient(
+                    colors: [Color.blue, Color.purple],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .controlSize(.large)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
+    }
+}
+
+// MARK: - Quick Start Tip Component
+
+struct QuickStartTip: View {
+    let icon: String
+    let title: String
+    let description: String
+    var accentColor: Color = .primary
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 20))
+                .foregroundStyle(accentColor)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.primary)
+
+                Text(description)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 }
 

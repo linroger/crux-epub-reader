@@ -10,7 +10,10 @@ struct KeyboardShortcutsView: View {
                     // Library Section
                     ShortcutSection(title: "Library", shortcuts: [
                         ShortcutItem(key: "⌘O", description: "Open EPUB file"),
-                        ShortcutItem(key: "⌘,", description: "Open Settings")
+                        ShortcutItem(key: "⌘,", description: "Open Settings"),
+                        ShortcutItem(key: "⌘⇧S", description: "Open Reading Statistics"),
+                        ShortcutItem(key: "⌘⇧G", description: "Open Reading Goals"),
+                        ShortcutItem(key: "⌘⇧T", description: "Open Reading Streaks")
                     ])
 
                     // Reading Section
@@ -35,14 +38,18 @@ struct KeyboardShortcutsView: View {
                     // Annotations Section
                     ShortcutSection(title: "Annotations", shortcuts: [
                         ShortcutItem(key: "⌘N", description: "Add note to selection"),
-                        ShortcutItem(key: "⌘⇧H", description: "Highlight selection"),
-                        ShortcutItem(key: "⌘⇧A", description: "Ask AI about selection")
+                        ShortcutItem(key: "⌘⇧H", description: "Highlight selection")
                     ])
 
                     // Window Management
                     ShortcutSection(title: "Window Management", shortcuts: [
                         ShortcutItem(key: "⌘W", description: "Close window"),
                         ShortcutItem(key: "⌘M", description: "Minimize window")
+                    ])
+
+                    // Help
+                    ShortcutSection(title: "Help", shortcuts: [
+                        ShortcutItem(key: "⌘/", description: "Show this keyboard shortcuts guide")
                     ])
                 }
                 .padding(24)
