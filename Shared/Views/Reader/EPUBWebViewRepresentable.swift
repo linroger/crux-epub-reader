@@ -80,13 +80,16 @@ struct EPUBWebViewRepresentable: PlatformViewRepresentable {
     }
 
     private func updateWebView(_ webView: WKWebView, context: Context) {
-        // Only reload if the HTML content actually changed
-        if context.coordinator.lastLoadedHTML != html {
+        // Only reload if the HTML content actually changed or if customCSS changed
+        let cssChanged = context.coordinator.lastCustomCSS != customCSS
+
+        if context.coordinator.lastLoadedHTML != html || cssChanged {
             if let styledHTML = ReaderResources.buildHTML(content: html, customCSS: customCSS),
                let baseURL = ReaderResources.baseURL {
                 webView.loadHTMLString(styledHTML, baseURL: baseURL)
             }
             context.coordinator.lastLoadedHTML = html
+            context.coordinator.lastCustomCSS = customCSS
             context.coordinator.pendingHighlights = highlights
             context.coordinator.pendingMarginNotes = marginNotes
             context.coordinator.highlightsApplied = []
@@ -121,6 +124,7 @@ class WebViewCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler
     let onVisibleSection: ((Int, Double) -> Void)?
 
     var lastLoadedHTML: String = ""
+    var lastCustomCSS: String? = nil
     var pendingHighlights: [Highlight] = []
     var pendingMarginNotes: [MarginNoteData] = []
     var highlightsApplied: [UUID] = []

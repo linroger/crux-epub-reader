@@ -49,6 +49,7 @@ struct LibraryMainView: View {
     let onImportBook: (URL) async -> Void
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.openWindow) private var openWindow
     @Query(sort: \BookCollection.sortOrder) private var collections: [BookCollection]
 
     @State private var searchQuery = ""
@@ -77,6 +78,7 @@ struct LibraryMainView: View {
     // Settings state (iOS)
     #if os(iOS)
     @State private var showingSettings = false
+    @State private var showingNotes = false
     #endif
 
     // Book details state
@@ -332,6 +334,9 @@ struct LibraryMainView: View {
                 #if os(iOS)
                 .sheet(isPresented: $showingSettings) {
                     iOSSettingsView()
+                }
+                .sheet(isPresented: $showingNotes) {
+                    NotesView()
                 }
                 #endif
                 .confirmationDialog(
@@ -601,6 +606,18 @@ struct LibraryMainView: View {
             Label("Collections", systemImage: "folder.badge.gearshape")
         }
         .help("Manage collections")
+
+        // Notes button
+        Button {
+            #if os(macOS)
+            openWindow(id: "notes")
+            #else
+            showingNotes = true
+            #endif
+        } label: {
+            Label("Notes", systemImage: "note.text")
+        }
+        .help("View all highlights and notes")
 
         // Settings button (iOS only)
         #if os(iOS)
