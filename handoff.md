@@ -459,3 +459,25 @@ Settings Model → AI Provider Protocol → Provider Implementations → Setting
     resumeSession MainActor isolation, ReadingGoalsView unused
     `monthStart`, AnnotationExportView unused `url`,
     LibraryBackupService immutable-property decode hint).
+- 2026-05-24T00:46:00Z: **AI THREAD POLISH + NATIVE SHARE PASS**
+  * **Auto-scroll while streaming** — `ThreadContentView` wraps its
+    `ScrollView` in a `ScrollViewReader` and pins to a `Color.clear`
+    anchor on every change to `streamingText`, thread message count,
+    or `isLoading`. Token streams stay visible without manual scroll.
+    Animated for thread updates; instant for token chunks to avoid
+    juddering animation queues.
+  * **Save chapter insights as bookmarks** — new
+    `ChapterInsightSaveBar` shows below a finished chapter-scope
+    analysis. One tap turns the assistant reply into a `Bookmark` with
+    `category = .analysis`, the prompt label preserved at the top of
+    the note body. Surfaces a "Saved" affordance for ~1.8s then resets.
+    The persistence Task is detached so the UI stays responsive on
+    slow disks.
+  * **Native macOS share menu** — new `ShareMenuButton`
+    (`NSSharingServicePicker` wrapped in an `NSViewRepresentable`)
+    appears next to Copy on assistant message hover. Anchors the
+    picker to the share button's NSView frame so the popover lands
+    correctly. Wired only on macOS; iOS keeps Copy / Regenerate as
+    before.
+  * **Build status:** `xcodebuild build` ⇒ **BUILD SUCCEEDED**. No
+    new warnings.

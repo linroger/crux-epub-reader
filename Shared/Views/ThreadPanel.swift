@@ -639,8 +639,16 @@ struct ThreadContentView: View {
     let onSendFollowUp: () -> Void
     let onRegenerate: () -> Void
 
+    /// Anchor the ScrollView pins to whenever new tokens arrive.
+    private let bottomAnchorID = "thread-bottom"
+
+    /// Flashes the "Saved" affordance on the chapter-insight save bar
+    /// when the user persists a chapter analysis as a bookmark.
+    @State private var didJustSaveInsight = false
+
     var body: some View {
-        ScrollView {
+        ScrollViewReader { proxy in
+            ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     if let selection = pendingSelection {
                         // Selected text
@@ -819,6 +827,23 @@ struct ThreadContentView: View {
                                 onStop: { state.cancelCurrentRequest() }
                             )
                         }
+
+                        // Chapter-scope save affordance. Chapter analyses
+                        // run with `currentHighlight == nil` and stay
+                        // ephemeral unless the user explicitly captures
+                        // them, since they aren't tied to a passage.
+                        if state.currentHighlight == nil,
+                           let chapter,
+                           !state.isLoading,
+                           thread.messages.contains(where: { $0.role == .assistant }) {
+                            ChapterInsightSaveBar(
+                                book: book,
+                                chapter: chapter,
+                                thread: thread,
+                                annotations: $annotations,
+                                didJustSave: $didJustSaveInsight
+                            )
+                        }
                     }
 
                     // Error display
@@ -874,10 +899,36 @@ struct ThreadContentView: View {
                         }
                         .padding(.top, 8)
                     }
+
+                    // Invisible spacer the scroll-to target uses to pin
+                    // the live tokens at the bottom of the panel.
+                    Color.clear
+                        .frame(height: 1)
+                        .id(bottomAnchorID)
                 }
                 .padding()
             }
+            // Pin the panel to its newest content as tokens stream in or
+            // when a fresh message commits. `proxy.scrollTo(...)` is
+            // cheap and idempotent; we throttle implicitly because
+            // `streamingText` only fires when chunks land.
+            .onChange(of: state.streamingText) { _, _ in
+                proxy.scrollTo(bottomAnchorID, anchor: .bottom)
+            }
+            .onChange(of: state.currentThread?.messages.count ?? 0) { _, _ in
+                withAnimation(.easeOut(duration: 0.18)) {
+                    proxy.scrollTo(bottomAnchorID, anchor: .bottom)
+                }
+            }
+            .onChange(of: state.isLoading) { _, loading in
+                if loading {
+                    withAnimation(.easeOut(duration: 0.18)) {
+                        proxy.scrollTo(bottomAnchorID, anchor: .bottom)
+                    }
+                }
+            }
         }
+    }
 }
 
 // MARK: - Thread Message View
@@ -951,6 +1002,17 @@ struct ThreadMessageView: View {
                         .controlSize(.mini)
                         .transition(.opacity)
                     }
+
+                    // Native macOS share — sends the assistant content
+                    // into the system Share menu (Notes, Messages, Mail,
+                    // shortcuts the user has installed, etc.).
+                    #if os(macOS)
+                    if message.role == .assistant && isHovered {
+                        ShareMenuButton(content: message.content)
+                            .controlSize(.mini)
+                            .transition(.opacity)
+                    }
+                    #endif
 
                     // Regenerate is only offered on the most recent
                     // assistant reply — replacing earlier messages would
@@ -1453,3 +1515,136 @@ struct EmptyStateTip: View {
     }
 }
 
+// MARK: - Chapter Insight Save Bar
+
+/// Captures a chapter-level AI analysis as a Bookmark so it survives
+/// app relaunches and shows up in the Bookmarks list / global Notes
+/// view. The Bookmark uses `category = .analysis` and stores the prompt
+/// label + assistant text in the note body.
+struct ChapterInsightSaveBar: View {
+    let book: Book
+    let chapter: Chapter
+    let thread: Thread
+    @Binding var annotations: BookAnnotations
+    @Binding var didJustSave: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "lightbulb")
+                .font(.caption)
+                .foregroundStyle(.yellow)
+            Text("Save this insight to revisit later.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button(action: saveInsight) {
+                Label(didJustSave ? "Saved" : "Save as Note",
+                      systemImage: didJustSave ? "checkmark" : "bookmark.fill")
+                    .font(.caption.weight(.medium))
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(didJustSave ? .green : .accentColor)
+            .controlSize(.small)
+            .disabled(didJustSave)
+            .help("Save this AI analysis as a chapter bookmark")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.yellow.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.yellow.opacity(0.2), lineWidth: 1)
+        )
+    }
+
+    private func saveInsight() {
+        let assistantText = thread.messages
+            .last(where: { $0.role == .assistant })?.content ?? ""
+        guard !assistantText.isEmpty else { return }
+        let label = thread.messages
+            .first(where: { $0.role == .user })?.content
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? "Chapter Insight"
+        let chapterIndex = book.chapters.firstIndex(where: { $0.id == chapter.id }) ?? 0
+
+        let bookmark = Bookmark(
+            chapterId: chapter.id,
+            chapterIndex: chapterIndex,
+            chapterTitle: chapter.title,
+            note: "**\(label)**\n\n\(assistantText)",
+            scrollPosition: 0,
+            category: .analysis
+        )
+        annotations.addBookmark(bookmark)
+
+        // Persist asynchronously; the bookmark is already in the UI
+        // state by the time we hand off to BookStorage.
+        let snapshot = annotations
+        Task.detached(priority: .utility) {
+            try? await BookStorage.shared.saveAnnotations(snapshot)
+        }
+
+        withAnimation(.easeInOut(duration: 0.2)) { didJustSave = true }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_800_000_000)
+            withAnimation(.easeInOut(duration: 0.2)) { didJustSave = false }
+        }
+    }
+}
+
+
+// MARK: - Share Menu Button
+
+#if os(macOS)
+/// Wraps `NSSharingServicePicker` so SwiftUI views can drop the system
+/// share affordance into a hover toolbar. The picker anchors to the
+/// hosting NSView so the popover lands on the right control.
+import AppKit
+
+struct ShareMenuButton: View {
+    let content: String
+
+    var body: some View {
+        SharePickerHost(content: content)
+            .frame(width: 22, height: 22)
+            .help("Share this response (Notes, Mail, Messages…)")
+            .accessibilityLabel("Share AI response")
+    }
+}
+
+private struct SharePickerHost: NSViewRepresentable {
+    let content: String
+
+    func makeNSView(context: Context) -> NSButton {
+        let button = NSButton()
+        button.bezelStyle = .accessoryBarAction
+        button.isBordered = false
+        button.image = NSImage(
+            systemSymbolName: "square.and.arrow.up",
+            accessibilityDescription: "Share"
+        )
+        button.imagePosition = .imageOnly
+        button.target = context.coordinator
+        button.action = #selector(Coordinator.share(_:))
+        context.coordinator.contentProvider = { content }
+        return button
+    }
+
+    func updateNSView(_ nsView: NSButton, context: Context) {
+        context.coordinator.contentProvider = { content }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator: NSObject, NSSharingServicePickerDelegate {
+        var contentProvider: (() -> String)?
+
+        @objc func share(_ sender: NSButton) {
+            let text = contentProvider?() ?? ""
+            guard !text.isEmpty else { return }
+            let picker = NSSharingServicePicker(items: [text])
+            picker.delegate = self
+            picker.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
+        }
+    }
+}
+#endif
