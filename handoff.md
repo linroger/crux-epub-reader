@@ -508,3 +508,22 @@ Settings Model → AI Provider Protocol → Provider Implementations → Setting
     new `Shared/Services/SpotlightIndexer.swift`.
   * **Build status:** `xcodebuild build` ⇒ **BUILD SUCCEEDED**. Only
     the same pre-existing warnings remain.
+- 2026-05-24T01:20:00Z: **HANDOFF / RECENTS + SEARCH WARM-UP PASS**
+  * **NSUserActivity donation** — `ReaderView` uses the SwiftUI
+    `.userActivity(SpotlightIndexer.activityType, isActive:)` modifier
+    so macOS knows what the user is currently reading. `userInfo`
+    carries the book's UUID; CruxApp's existing
+    `.onContinueUserActivity` handler routes it through
+    `AppState.selectedBookId`. Eligible for Search + Handoff on both
+    platforms; `isEligibleForPrediction` is iOS-only (gated with
+    `#if os(iOS)`). `persistentIdentifier` is set so recurring reads
+    rank higher in Spotlight Suggested.
+  * **Background-warmed search index** — `ReaderView.warmBookSearchIndex()`
+    runs from `.task` after `loadState()`. Skips books with ≤ 6
+    chapters (lazy path was already fast there) and yields once so
+    the warm-up doesn't dominate the open transition. First ⌘F in
+    book scope is now an instant substring scan instead of paying
+    HTML-stripping mid-keystroke.
+  * **Bugfix:** `isEligibleForPrediction` is unavailable on macOS —
+    initial build failed at line 665; gated to `#if os(iOS)`.
+  * **Build status:** `xcodebuild build` ⇒ **BUILD SUCCEEDED**.

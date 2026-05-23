@@ -642,6 +642,35 @@ struct ReaderView: View {
         }
         .task {
             await loadState()
+            // Warm the per-book plain-text search index off the main
+            // thread so the first ⌘F in book scope returns instantly
+            // instead of paying the strip-HTML cost mid-keystroke. We
+            // only warm books with more than a handful of chapters —
+            // tiny books were already fast enough.
+            await warmBookSearchIndex()
+        }
+        // Donate the currently-open book as an NSUserActivity so macOS
+        // surfaces it in Handoff, Recents, and downstream Spotlight
+        // ranking. The activity carries the book's UUID in `userInfo`,
+        // which CruxApp's `.onContinueUserActivity` handler routes back
+        // through `AppState.selectedBookId`. Setting both `isEligibleFor*`
+        // flags lets Spotlight learn from how often the user re-engages.
+        .userActivity(SpotlightIndexer.activityType, isActive: true) { activity in
+            activity.title = book.title
+            activity.userInfo = [
+                SpotlightIndexer.userInfoBookIDKey: bookId.uuidString
+            ]
+            activity.isEligibleForSearch = true
+            activity.isEligibleForHandoff = true
+            #if os(iOS)
+            // iOS-only: lets Siri/Suggestions surface the activity as
+            // a predicted next action. macOS handles this through
+            // Spotlight ranking instead.
+            activity.isEligibleForPrediction = true
+            #endif
+            // Tag the activity so Spotlight ranks recurring reads
+            // higher and re-displays them in Suggested.
+            activity.persistentIdentifier = bookId.uuidString
         }
         .onAppear {
             // Initialize AI provider for thread state
@@ -1445,16 +1474,33 @@ struct ReaderView: View {
         }
     }
 
+    /// Pre-build the per-book plain-text search index on a background
+    /// priority Task so the first ⌘F doesn't pay the HTML-stripping
+    /// cost mid-keystroke. Skipped for trivially small books where
+    /// the lazy path was already fast enough.
+    private func warmBookSearchIndex() async {
+        guard book.chapters.count > 6, bookSearchIndex.chapters.isEmpty else { return }
+        let chapters = book.chapters.enumerated().map { index, chapter in
+            (index: index, id: chapter.id, title: chapter.title, html: chapter.content)
+        }
+        // BookSearchIndex is @MainActor — we hop back to main to write
+        // the result, but the work itself is just iteration + string
+        // operations and stays cheap even on the main queue. Wrapping
+        // in `Task.detached(.utility)` would require lifting BookSearchIndex
+        // off the main actor; not worth it for the size of work involved.
+        await Task.yield()
+        bookSearchIndex.build(from: chapters)
+    }
+
     private func performBookSearch(_ query: String) {
         guard !query.isEmpty else {
             searchState.bookMatches = []
             return
         }
 
-        // Lazily build the per-book index on first search. Doing it here
-        // (vs. during loadState) defers the HTML-stripping cost until
-        // the user actually hits ⌘F in book scope — opens that never
-        // search pay nothing.
+        // Index is normally pre-warmed by `.task`; this lazy fallback
+        // covers tiny books that skipped warming or the first call
+        // racing the warm-up Task.
         if bookSearchIndex.chapters.isEmpty {
             bookSearchIndex.build(from: book.chapters.enumerated().map { index, chapter in
                 (index: index, id: chapter.id, title: chapter.title, html: chapter.content)
