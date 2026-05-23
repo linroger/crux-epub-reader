@@ -19,12 +19,29 @@ struct ReaderView: View {
     @State private var pendingSelection: SelectionData? = nil
     @State private var pendingHighlightId: UUID? = nil
     @State private var searchState = SearchState()
+    /// Cached plain-text index for the active book. Built once when the
+    /// book opens, then reused for every keystroke in book-wide search
+    /// so we don't re-strip HTML on each query.
+    @State private var bookSearchIndex = BookSearchIndex()
     @State private var webViewCoordinator: WebViewCoordinator? = nil
     @State private var pendingFragment: String? = nil
     @State private var previousFilePath: String? = nil
     @State private var isNavigatingProgrammatically = false
     @State private var currentScrollPosition: Double = 0
     @State private var pendingScrollPosition: Double? = nil
+    /// Most recent CFI reported by the viewport tracker. Persisted into
+    /// `StoredBook.lastReadingCFI` on every progress save so the reader
+    /// can restore to the exact element on reopen.
+    @State private var currentReadingCFI: String = ""
+    /// CFI queued for restoration after a chapter loads. Empty means
+    /// "fall back to `pendingScrollPosition`".
+    @State private var pendingReadingCFI: String = ""
+    /// Stack of (chapterIndex, scrollPosition) tuples to support a
+    /// "Back" action when the user follows an internal EPUB hyperlink
+    /// (footnote, glossary reference, etc.). Capped to a sensible depth
+    /// so deeply nested hops don't grow indefinitely.
+    @State private var navigationHistory: [(chapterIndex: Int, scrollPosition: Double)] = []
+    private static let navigationHistoryLimit = 32
     @State private var showTableOfContents = false
     @State private var showBookmarks = false
     @State private var showHighlights = false
@@ -32,6 +49,15 @@ struct ReaderView: View {
     @State private var showExportAnnotations = false
     @State private var bookmarkNote = ""
     @State private var sessionManager: ReadingSessionManager?
+
+    /// Native macOS sidebar that surfaces the live AI thread. Opens
+    /// automatically when the user kicks off a chapter-scope AI action
+    /// from the toolbar; can be toggled freely with ⌥⌘A.
+    @State private var showAIInspector = false
+    /// Free-form chapter-scope question routed into ThreadPanelState.
+    @State private var chapterQuestion = ""
+    /// Backs the sheet for typing a free-form chapter-scope question.
+    @State private var showChapterAskSheet = false
 
     private var isTrackingEnabled: Bool {
         settings.first?.trackReadingTime ?? true
@@ -262,8 +288,14 @@ struct ReaderView: View {
                         initializeViewportTracking()
                         restoreScrollPositionIfNeeded()
                     },
-                    onVisibleSection: { chapterIndex, scrollPosition in
-                        handleVisibleSectionChange(chapterIndex, scrollPosition: scrollPosition)
+                    onVisibleSection: { chapterIndex, scrollPosition, cfi in
+                        handleVisibleSectionChange(chapterIndex, scrollPosition: scrollPosition, cfi: cfi)
+                    },
+                    onContextMenuAction: { selectionData, action in
+                        handleContextMenuAction(selectionData, action: action)
+                    },
+                    onInternalLink: { path, fragment in
+                        followInternalLink(path: path, fragment: fragment)
                     }
                 )
                 .id(currentChapterIndex)  // Force view recreation on chapter change
@@ -335,83 +367,171 @@ struct ReaderView: View {
             .background(.bar)
             .accessibilityIdentifier("navigationBar")
 
-            // Progress bar - shows chapter boundaries with current position
-            GeometryReader { geo in
-                let chapterWidth = geo.size.width / CGFloat(max(1, book.chapters.count))
-
-                ZStack(alignment: .leading) {
-                    // Background
-                    Rectangle()
-                        .fill(Color.secondary.opacity(0.15))
-
-                    // Completed chapters
-                    Rectangle()
-                        .fill(Color.accentColor.opacity(0.6))
-                        .frame(width: chapterWidth * CGFloat(currentChapterIndex))
-
-                    // Current chapter progress
-                    Rectangle()
-                        .fill(Color.accentColor)
-                        .frame(width: chapterWidth * CGFloat(currentChapterIndex) + chapterWidth * currentScrollPosition)
-
-                    // Chapter tick marks
-                    HStack(spacing: 0) {
-                        ForEach(0..<book.chapters.count, id: \.self) { i in
-                            Rectangle()
-                                .fill(Color.clear)
-                                .frame(width: chapterWidth)
-                                .overlay(alignment: .trailing) {
-                                    if i < book.chapters.count - 1 {
-                                        Rectangle()
-                                            .fill(Color.primary.opacity(0.2))
-                                            .frame(width: 1)
-                                    }
-                                }
-                        }
-                    }
+            // Progress scrubber — tap or drag to jump to any chapter.
+            // Hovering reveals the chapter that would be navigated to.
+            ProgressScrubber(
+                chapters: book.chapters,
+                currentChapterIndex: currentChapterIndex,
+                currentScrollPosition: currentScrollPosition,
+                onSeek: { targetIndex in
+                    navigateToChapter(targetIndex)
                 }
-            }
-            .frame(height: 4)
+            )
         }
         .navigationTitle(book.title)
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
-                // View bookmarks
-                Button {
-                    showBookmarks = true
-                } label: {
-                    Label("Bookmarks", systemImage: "bookmark.fill")
+                // Back through internal-link history. Hidden until the
+                // user has actually followed a footnote/glossary link.
+                if !navigationHistory.isEmpty {
+                    Button {
+                        popNavigationHistory()
+                    } label: {
+                        Label("Back", systemImage: "chevron.backward.circle")
+                    }
+                    .help("Return to before the last internal link")
+                    .accessibilityIdentifier("readerBack")
                 }
 
-                // Add bookmark
-                Button {
-                    showAddBookmark = true
-                } label: {
-                    Label("Add Bookmark", systemImage: "bookmark.circle")
-                }
-
-                // Table of contents
+                // Chapters — most-used navigation affordance, surfaced first.
                 Button {
                     showTableOfContents = true
                 } label: {
                     Label("Chapters", systemImage: "list.bullet")
                 }
+                .help("Table of contents (⌘L)")
+                .keyboardShortcut("l", modifiers: .command)
 
-                // View highlights
+                // Bookmarks — a single grouped menu reduces toolbar noise
+                // while keeping both "view" and "add" within one tap.
+                Menu {
+                    Button {
+                        showAddBookmark = true
+                    } label: {
+                        Label("Add Bookmark Here", systemImage: "bookmark.circle")
+                    }
+                    .keyboardShortcut("b", modifiers: .command)
+
+                    Button {
+                        showBookmarks = true
+                    } label: {
+                        Label("View All Bookmarks", systemImage: "bookmark.fill")
+                    }
+
+                    if !annotations.bookmarks.isEmpty {
+                        Divider()
+                        Text("\(annotations.bookmarks.count) bookmark\(annotations.bookmarks.count == 1 ? "" : "s")")
+                    }
+                } label: {
+                    Label("Bookmarks", systemImage: annotations.bookmarks.isEmpty ? "bookmark" : "bookmark.fill")
+                }
+                .help("Bookmarks (⌘B to add)")
+
+                // Highlights — direct button, always relevant when reading.
                 Button {
                     showHighlights = true
                 } label: {
                     Label("Highlights", systemImage: "highlighter")
                 }
+                .help("View highlights in this book")
 
-                // Export annotations
-                Button {
-                    showExportAnnotations = true
+                // Ask AI — chapter-scope quick actions. The presets fan out
+                // into the AI inspector, where streaming + cancel + the
+                // shared follow-up composer live. A free-form prompt is
+                // available via the sheet for anything off-preset.
+                Menu {
+                    Button {
+                        runChapterAIAction(label: "Summarize Chapter",
+                                           prompt: "Write a concise but substantive summary of the current chapter. Capture the central arguments or narrative beats, key turning points, and any concepts the reader needs to carry into later chapters. Keep it tight — under ~250 words — but don't sacrifice insight for brevity.")
+                    } label: {
+                        Label("Summarize Chapter", systemImage: "doc.text.magnifyingglass")
+                    }
+                    .keyboardShortcut("u", modifiers: [.command, .option])
+
+                    Button {
+                        runChapterAIAction(label: "Key Themes & Motifs",
+                                           prompt: "Identify the chapter's principal themes, motifs, and any recurring images or symbols. For each, briefly cite where in the chapter it appears and why it matters to the wider argument or narrative.")
+                    } label: {
+                        Label("Key Themes & Motifs", systemImage: "sparkle.magnifyingglass")
+                    }
+
+                    Button {
+                        runChapterAIAction(label: "Difficult Passages",
+                                           prompt: "Pinpoint two to four passages a careful reader is most likely to find difficult or ambiguous, and for each explain what makes it hard and how to read it. Prefer concrete textual reasons (vocabulary, syntax, rhetorical structure, implied context) over generic remarks.")
+                    } label: {
+                        Label("Explain Difficult Passages", systemImage: "questionmark.text.page")
+                    }
+
+                    Button {
+                        runChapterAIAction(label: "Discussion Questions",
+                                           prompt: "Propose five thought-provoking discussion questions grounded in this chapter. The questions should require interpretation, not recall — each one should be answerable in several ways depending on the reader's stance.")
+                    } label: {
+                        Label("Discussion Questions", systemImage: "bubble.left.and.text.bubble.right")
+                    }
+
+                    Divider()
+
+                    Button {
+                        chapterQuestion = ""
+                        showChapterAskSheet = true
+                    } label: {
+                        Label("Ask About This Chapter…", systemImage: "text.bubble")
+                    }
+                    .keyboardShortcut("a", modifiers: [.command, .option])
                 } label: {
-                    Label("Export", systemImage: "square.and.arrow.up")
+                    Label("Ask AI", systemImage: "sparkles")
                 }
-                .disabled(annotations.highlights.isEmpty && annotations.bookmarks.isEmpty)
+                .help("Chapter-level AI insights (⌥⌘A)")
+                .disabled(currentChapter == nil)
+
+                // Export — moved into an overflow menu since it's used less
+                // often than the bookmark/highlight flows.
+                Menu {
+                    Button {
+                        showExportAnnotations = true
+                    } label: {
+                        Label("Export Annotations…", systemImage: "square.and.arrow.up")
+                    }
+                    .disabled(annotations.highlights.isEmpty && annotations.bookmarks.isEmpty)
+
+                    Divider()
+
+                    Button {
+                        showAIInspector.toggle()
+                    } label: {
+                        Label(showAIInspector ? "Hide AI Inspector" : "Show AI Inspector",
+                              systemImage: "sidebar.right")
+                    }
+                    .keyboardShortcut("i", modifiers: [.command, .option])
+                } label: {
+                    Label("More", systemImage: "ellipsis.circle")
+                }
+                .help("More actions")
             }
+        }
+        .inspector(isPresented: $showAIInspector) {
+            ThreadPanel(
+                pendingSelection: nil,
+                book: book,
+                chapter: currentChapter,
+                state: threadState,
+                annotations: $annotations,
+                onDismiss: { showAIInspector = false }
+            )
+            .inspectorColumnWidth(min: 320, ideal: 380, max: 520)
+        }
+        .sheet(isPresented: $showChapterAskSheet) {
+            ChapterAskSheet(
+                chapterTitle: currentChapter?.title ?? "Chapter",
+                question: $chapterQuestion,
+                onCancel: { showChapterAskSheet = false },
+                onSubmit: {
+                    let q = chapterQuestion.trimmingCharacters(in: .whitespacesAndNewlines)
+                    showChapterAskSheet = false
+                    guard !q.isEmpty else { return }
+                    runChapterAIAction(label: q, prompt: q)
+                }
+            )
         }
         .sheet(isPresented: $showTableOfContents) {
             NavigationStack {
@@ -526,6 +646,10 @@ struct ReaderView: View {
         .onAppear {
             // Initialize AI provider for thread state
             threadState.setProviderManager(providerManager)
+            // Push the user's current prompt selection so future calls
+            // pick it up. Done in onAppear (not onChange) because the user
+            // can edit prompts in Settings, then come back here.
+            threadState.resolvedSystemPrompt = resolvePromptFromSettings()
 
             // Initialize and start reading session tracking
             sessionManager = ReadingSessionManager(
@@ -634,6 +758,16 @@ struct ReaderView: View {
             }
             return .ignored
         }
+        .onKeyPress(characters: .init(charactersIn: "dD")) { press in
+            // ⌃⌘D — macOS standard "Look Up in Dictionary" gesture.
+            // Falls through to system handling if no selection exists.
+            if press.modifiers.contains(.control) && press.modifiers.contains(.command),
+               let selection = pendingSelection {
+                _ = DictionaryLookup.lookUp(selection.text)
+                return .handled
+            }
+            return .ignored
+        }
         .onKeyPress(characters: .init(charactersIn: "[")) { press in
             if press.modifiers.contains(.command) {
                 // Previous chapter
@@ -682,6 +816,112 @@ struct ReaderView: View {
         pendingSelection = nil
         pendingHighlightId = nil
     }
+    
+    private func handleContextMenuAction(_ selectionData: SelectionData, action: SelectionContextAction) {
+        guard currentChapter != nil else { return }
+        
+        switch action {
+        case .highlight:
+            // Set up as pending selection and commit immediately
+            pendingSelection = selectionData
+            pendingHighlightId = UUID()
+            if let _ = commitPendingHighlight() {
+                Task {
+                    try? await BookStorage.shared.saveAnnotations(annotations)
+                }
+            }
+            
+        case .annotateWithAI:
+            // Set up pending selection and trigger AI annotation
+            pendingSelection = selectionData
+            pendingHighlightId = UUID()
+            
+            Task {
+                await startAIAnnotation(for: selectionData, customPrompt: nil)
+            }
+            
+        case .annotateWithCustomPrompt(let customPrompt):
+            // Set up pending selection and trigger AI annotation with custom prompt
+            pendingSelection = selectionData
+            pendingHighlightId = UUID()
+            
+            Task {
+                await startAIAnnotation(for: selectionData, customPrompt: customPrompt)
+            }
+            
+        case .copy:
+            // Copy is handled in the coordinator, nothing more needed here
+            break
+        }
+    }
+    
+    /// Reads the user's prompt selection from AppSettings and returns the
+    /// resolved system-prompt string for AI requests. Returns nil when
+    /// the user is on the built-in scholarly default (so the provider
+    /// uses its bundled prompt instead of duplicating it via SwiftData).
+    private func resolvePromptFromSettings() -> String? {
+        guard let appSettings = settings.first else { return nil }
+        let preset = AIPromptPreset(rawValue: appSettings.activePromptPresetId) ?? .scholarly
+        switch preset {
+        case .scholarly:
+            // Built-in default — let the provider use its own copy.
+            return nil
+        case .custom:
+            let trimmed = appSettings.customSystemPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        case .casual, .socratic, .minimalist, .technical:
+            return preset.systemPrompt
+        }
+    }
+
+    private func startAIAnnotation(for selectionData: SelectionData, customPrompt: String?) async {
+        guard let chapter = currentChapter,
+              let pendingId = pendingHighlightId else { return }
+        
+        // Check if AI provider is configured
+        guard threadState.isConfigured else {
+            let error = NSError(
+                domain: "Crux",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "No AI provider configured. Please configure a provider in Settings."]
+            )
+            threadState.error = error
+            return
+        }
+        
+        // Create and commit the highlight
+        let highlight = Highlight(
+            id: pendingId,
+            chapterId: chapter.id,
+            selectedText: selectionData.text,
+            surroundingContext: selectionData.context,
+            cfiRange: selectionData.cfiRange
+        )
+        annotations.addHighlight(highlight)
+        clearPendingSelection()
+        try? await BookStorage.shared.saveAnnotations(annotations)
+        
+        // Clear any previous errors
+        threadState.error = nil
+        
+        // Set loading state
+        loadingHighlightId = pendingId
+        
+        // Start the AI thread with optional custom prompt
+        if let thread = await threadState.startThread(
+            for: highlight,
+            book: book,
+            chapter: currentChapter,
+            bookId: annotations.bookId,
+            customPrompt: customPrompt
+        ) {
+            annotations.addThread(to: pendingId, thread: thread)
+            try? await BookStorage.shared.saveAnnotations(annotations)
+        }
+        
+        // Clear loading state
+        loadingHighlightId = nil
+    }
 
     private func commitPendingHighlight() -> Highlight? {
         guard let pending = pendingSelection,
@@ -698,6 +938,24 @@ struct ReaderView: View {
         annotations.addHighlight(highlight)
         clearPendingSelection()
         return highlight
+    }
+
+    /// Runs a chapter-scope AI action and opens the inspector to surface
+    /// the streaming response, Stop, and Regenerate affordances. The
+    /// result is ephemeral — not persisted as a highlight thread —
+    /// because chapter analyses aren't tied to a specific passage.
+    private func runChapterAIAction(label: String, prompt: String) {
+        guard let chapter = currentChapter else { return }
+        showAIInspector = true
+        threadState.resolvedSystemPrompt = resolvePromptFromSettings()
+        threadState.runTracked {
+            await threadState.startChapterAnalysis(
+                label: label,
+                prompt: prompt,
+                chapter: chapter,
+                book: book
+            )
+        }
     }
 
     private func handleMarginNoteAction(_ action: MarginNoteAction) {
@@ -804,7 +1062,7 @@ struct ReaderView: View {
                 #else
                 // On iOS, the app structure should handle this
                 // For now, we'll just log - this could be extended with a notification
-                print("Settings requested from reader view")
+                AppLog.ui.debug("Settings requested from reader view")
                 #endif
 
             case .deleteHighlight(let highlightId):
@@ -815,6 +1073,88 @@ struct ReaderView: View {
                     annotations.removeHighlight(id: highlightId)
                     try? await BookStorage.shared.saveAnnotations(annotations)
                 }
+            }
+        }
+    }
+
+    /// Follow an internal EPUB hyperlink. Matches the link's last path
+    /// component (and optional fragment) against the chapter list,
+    /// pushes the current position onto the back stack, and navigates.
+    ///
+    /// EPUBs reference internal targets in three shapes:
+    ///   1. `chapter02.xhtml`          → match by filePath only
+    ///   2. `chapter02.xhtml#sec1`     → match by filePath + fragment
+    ///   3. `#footnote-3`              → same-file fragment scroll
+    ///
+    /// Shape (3) leaves `path` empty (the URL's lastPathComponent is
+    /// "/" when only the fragment changes — we treat empty as "same
+    /// file" and scroll to the anchor without changing chapter.
+    private func followInternalLink(path: String, fragment: String?) {
+        // Same-file fragment-only navigation.
+        if path.isEmpty || path == "/" {
+            guard let fragment, !fragment.isEmpty else { return }
+            pushNavigationHistory()
+            let escaped = fragment.replacingOccurrences(of: "\\", with: "\\\\")
+                                  .replacingOccurrences(of: "'", with: "\\'")
+            evaluateJavaScript("CruxHighlighter.scrollToAnchor('\(escaped)');")
+            return
+        }
+
+        // Find a chapter whose filePath ends with this path (the link's
+        // last component). Prefer an exact match on filePath + fragment;
+        // fall back to filePath alone.
+        let needle = path.lowercased()
+        var targetIndex: Int? = nil
+        if let frag = fragment, !frag.isEmpty {
+            targetIndex = book.chapters.firstIndex { chapter in
+                chapter.filePath.lowercased().hasSuffix(needle)
+                    && chapter.fragment?.lowercased() == frag.lowercased()
+            }
+        }
+        if targetIndex == nil {
+            targetIndex = book.chapters.firstIndex { chapter in
+                chapter.filePath.lowercased().hasSuffix(needle)
+            }
+        }
+
+        guard let targetIndex else {
+            AppLog.reader.warning("Internal link target not found: \(path, privacy: .public)#\(fragment ?? "", privacy: .public)")
+            return
+        }
+
+        pushNavigationHistory()
+        navigateToChapter(targetIndex)
+
+        // If the link had a fragment but it didn't disambiguate to a
+        // dedicated chapter, still try to scroll to the anchor after the
+        // page loads.
+        if let frag = fragment, !frag.isEmpty,
+           book.chapters[targetIndex].fragment != frag {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                let escaped = frag.replacingOccurrences(of: "\\", with: "\\\\")
+                                  .replacingOccurrences(of: "'", with: "\\'")
+                evaluateJavaScript("CruxHighlighter.scrollToAnchor('\(escaped)');")
+            }
+        }
+    }
+
+    private func pushNavigationHistory() {
+        navigationHistory.append((chapterIndex: currentChapterIndex, scrollPosition: currentScrollPosition))
+        if navigationHistory.count > Self.navigationHistoryLimit {
+            navigationHistory.removeFirst(navigationHistory.count - Self.navigationHistoryLimit)
+        }
+    }
+
+    private func popNavigationHistory() {
+        guard let entry = navigationHistory.popLast() else { return }
+        navigateToChapter(entry.chapterIndex)
+        // Restore the scroll position the user had before following the
+        // link, not just the chapter — important for long chapters
+        // where the footnote may have been buried deep in the text.
+        if entry.scrollPosition > 0 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                pendingScrollPosition = entry.scrollPosition
+                restoreScrollPositionIfNeeded()
             }
         }
     }
@@ -858,7 +1198,13 @@ struct ReaderView: View {
     }
 
     private func saveProgress() {
-        storedBook?.updateProgress(chapter: currentChapterIndex, total: book.chapters.count, scroll: currentScrollPosition)
+        guard let stored = storedBook else { return }
+        stored.updateProgress(chapter: currentChapterIndex, total: book.chapters.count, scroll: currentScrollPosition)
+        // Persist the element-level CFI so reopen restores precisely.
+        // Always overwrite — an empty CFI means "we genuinely have no
+        // better signal than scrollPosition right now," and the empty
+        // string is the agreed sentinel for that case.
+        stored.lastReadingCFI = currentReadingCFI
     }
 
     // MARK: - Bookmark Management
@@ -951,9 +1297,12 @@ struct ReaderView: View {
         }
     }
 
-    private func handleVisibleSectionChange(_ chapterIndex: Int, scrollPosition: Double) {
+    private func handleVisibleSectionChange(_ chapterIndex: Int, scrollPosition: Double, cfi: String?) {
         // Always track scroll position
         currentScrollPosition = scrollPosition
+        if let cfi = cfi, !cfi.isEmpty {
+            currentReadingCFI = cfi
+        }
 
         // Guard against feedback loops during programmatic navigation
         guard !isNavigatingProgrammatically else { return }
@@ -995,6 +1344,19 @@ struct ReaderView: View {
         if let stored = storedBook {
             currentChapterIndex = min(stored.currentChapterIndex, book.chapters.count - 1)
             pendingScrollPosition = stored.scrollPosition
+            pendingReadingCFI = stored.lastReadingCFI
+            currentReadingCFI = stored.lastReadingCFI
+
+            // Backfill cached reading-time for books imported before
+            // the field existed. We have the parsed chapters in hand;
+            // computing once and saving avoids re-parsing every time the
+            // library row asks.
+            if stored.cachedReadingMinutes == 0 {
+                let total = ReadingTimeEstimator.totalMinutes(
+                    forChapters: book.chapters.map(\.content)
+                )
+                stored.cachedReadingMinutes = Int(total.rounded())
+            }
         }
 
         // Initialize file path tracking
@@ -1011,7 +1373,13 @@ struct ReaderView: View {
     }
 
     private func restoreScrollPositionIfNeeded() {
-        guard let scrollPosition = pendingScrollPosition, scrollPosition > 0 else { return }
+        // Prefer element-level CFI; fall back to scroll-percentage.
+        let cfi = pendingReadingCFI
+        let scrollPosition = pendingScrollPosition ?? 0
+        let hasCFI = !cfi.isEmpty
+        let hasScroll = scrollPosition > 0
+        guard hasCFI || hasScroll else { return }
+        pendingReadingCFI = ""
         pendingScrollPosition = nil
 
         // Set navigation guard to prevent the scroll from updating our saved position
@@ -1020,7 +1388,17 @@ struct ReaderView: View {
 
         // Delay to ensure content is fully rendered before restoring position
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            evaluateJavaScript("CruxHighlighter.setScrollPosition(\(scrollPosition));")
+            if hasCFI {
+                // scrollToCFI returns true/false in JS; we don't read it
+                // back here, but if it fails the page stays at the top
+                // and `scrollPosition` (already persisted alongside)
+                // remains the recovery anchor on a future reopen.
+                let escaped = cfi.replacingOccurrences(of: "\\", with: "\\\\")
+                                 .replacingOccurrences(of: "'", with: "\\'")
+                evaluateJavaScript("CruxHighlighter.scrollToCFI('\(escaped)');")
+            } else {
+                evaluateJavaScript("CruxHighlighter.setScrollPosition(\(scrollPosition));")
+            }
 
             // End programmatic navigation after scroll settles
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -1073,31 +1451,33 @@ struct ReaderView: View {
             return
         }
 
-        var matches: [SearchMatch] = []
-
-        for (index, chapter) in book.chapters.enumerated() {
-            let plainText = HTMLTextExtractor.extractText(from: chapter.content)
-            let chapterMatches = HTMLTextExtractor.findMatches(in: plainText, query: query)
-
-            for (matchIndex, match) in chapterMatches.enumerated() {
-                matches.append(SearchMatch(
-                    text: match.snippet,
-                    chapterId: chapter.id,
-                    chapterTitle: chapter.title,
-                    chapterIndex: index,
-                    matchIndex: matchIndex
-                ))
-            }
+        // Lazily build the per-book index on first search. Doing it here
+        // (vs. during loadState) defers the HTML-stripping cost until
+        // the user actually hits ⌘F in book scope — opens that never
+        // search pay nothing.
+        if bookSearchIndex.chapters.isEmpty {
+            bookSearchIndex.build(from: book.chapters.enumerated().map { index, chapter in
+                (index: index, id: chapter.id, title: chapter.title, html: chapter.content)
+            })
         }
 
-        searchState.bookMatches = matches
+        let hits = bookSearchIndex.search(query)
+        searchState.bookMatches = hits.map { hit in
+            SearchMatch(
+                text: hit.snippet,
+                chapterId: hit.chapterId,
+                chapterTitle: hit.chapterTitle,
+                chapterIndex: hit.chapterIndex,
+                matchIndex: hit.matchIndex
+            )
+        }
 
         // Save to search history if we got results
-        if !matches.isEmpty {
+        if !searchState.bookMatches.isEmpty {
             appState.searchHistoryService.addSearch(
                 query: query,
                 bookId: bookId,
-                resultCount: matches.count
+                resultCount: searchState.bookMatches.count
             )
         }
     }
@@ -1158,7 +1538,9 @@ struct EPUBWebView: View {
     var onMarginNoteAction: ((MarginNoteAction) -> Void)? = nil
     var onSearchResults: ((Int, Int) -> Void)? = nil
     var onContentLoaded: (() -> Void)? = nil
-    var onVisibleSection: ((Int, Double) -> Void)? = nil
+    var onVisibleSection: ((Int, Double, String?) -> Void)? = nil
+    var onContextMenuAction: ((SelectionData, SelectionContextAction) -> Void)? = nil
+    var onInternalLink: ((String, String?) -> Void)? = nil
 
     @Query private var settings: [AppSettings]
 
@@ -1187,7 +1569,72 @@ struct EPUBWebView: View {
             onMarginNoteAction: onMarginNoteAction,
             onSearchResults: onSearchResults,
             onContentLoaded: onContentLoaded,
-            onVisibleSection: onVisibleSection
+            onVisibleSection: onVisibleSection,
+            onContextMenuAction: onContextMenuAction,
+            onInternalLink: onInternalLink
         )
+    }
+}
+
+// MARK: - Chapter Ask Sheet
+
+/// Free-form composer for "Ask AI about this chapter" — sized like a
+/// native compose sheet, autoexpands as the user types, ⌘Return commits.
+struct ChapterAskSheet: View {
+    let chapterTitle: String
+    @Binding var question: String
+    let onCancel: () -> Void
+    let onSubmit: () -> Void
+
+    @FocusState private var fieldFocused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles")
+                    .foregroundStyle(LinearGradient(
+                        colors: [Color.purple, Color.blue],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
+                Text("Ask about \(chapterTitle)")
+                    .font(.headline)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer()
+            }
+
+            Text("Your question runs against the current chapter only. Use the AI Provider in Settings to switch models.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            TextEditor(text: $question)
+                .font(.body)
+                .focused($fieldFocused)
+                .frame(minHeight: 110, maxHeight: 220)
+                .padding(6)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
+                )
+
+            HStack {
+                Spacer()
+                Button("Cancel", role: .cancel, action: onCancel)
+                    .keyboardShortcut(.cancelAction)
+                Button {
+                    onSubmit()
+                } label: {
+                    Label("Ask", systemImage: "arrow.up")
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+                .disabled(question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 480)
+        .onAppear { fieldFocused = true }
     }
 }

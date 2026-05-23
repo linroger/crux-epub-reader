@@ -1,8 +1,8 @@
 # Handoff.md - Crux EPUB Reader Enhancement Project
 
-**Last Updated (UTC):** 2026-01-22T00:15:00Z
-**Status:** Ready for Manual Testing ✅
-**Current Focus:** User should follow PRE_FLIGHT_CHECKLIST.md to validate AI annotation features
+**Last Updated (UTC):** 2026-05-24T00:33:00Z
+**Status:** AI Inspector & Streaming UX Pass shipped ✅
+**Current Focus:** Continuing the AI-seamlessness/native-macOS overhaul; user is welcome to exercise the new Reader → Ask AI menu and the AI Inspector (⌥⌘I).
 
 ## 1) Request & Context
 - **User's request:** Analyze the Crux EPUB reader codebase thoroughly, understand how components interact, and create a comprehensive plan for missing features to make the app fully polished and ready to ship. Specific requirements include multi-provider AI support, extensive customization options, notes management, CSV export, and macOS-native UI improvements.
@@ -354,6 +354,49 @@ Settings Model → AI Provider Protocol → Provider Implementations → Setting
   * Updated feature_list.json to mark 8 P1 features as completed (ai_001-008, settings_001-002)
   * Verified implementations: Multi-provider AI system (Claude/OpenAI/Custom), Settings UI (977 lines), Notes View (852 lines), Export functionality
   * Created NEXT_STEPS.md with testing & polish action plan
+- 2026-05-24T02:00:00Z: **READER UX + ACADEMIC FEATURES SESSION**
+  * **Reader progress scrubber**: `Shared/Views/Reader/ProgressScrubber.swift` — tappable/draggable 6pt strip with hover caret + tooltip, grows to 8pt while pressed, accessibility-adjustable.
+  * **Dictionary lookup**: `⌃⌘D` from reader pipes the current selection through `Shared/Services/DictionaryLookup.swift` and opens Dictionary.app via `dict://` URL.
+  * **Multi-window**: dedicated `BookWindowContent` scene keyed on `UUID`; CruxApp registers a `WindowGroup(id: "book-reader", for: UUID.self)`; library context menus gained "Open in New Window". Each window holds its own ThreadPanelState.
+  * **Batch import progress**: `Shared/Views/BatchImportProgressView.swift` — multi-file drag-drops show a glass-floating sheet with per-file status. Single drops skip the sheet.
+  * **High-contrast theme**: `AppTheme.highContrast` (pure white on black, >21:1 contrast); ThemeManager.colorScheme returns `.dark` for it.
+  * **Citation export**: `Shared/Services/CitationFormatter.swift` generates APA / MLA / Chicago / BibTeX from `Book` + `BookMetadata`, with author-inversion, multi-author handling, and BibTeX key derivation.
+  * **ClaudeService removal**: deleted the legacy actor; pre-existing UserDefaults key migration still happens through `AIProviderManager.migrateFromLegacySettings()`.
+  * **Foundation tests added**: ReadingTimeEstimatorTests, RetryPolicyTests, LocalProviderURLTests, CitationFormatterTests, AIPromptPresetTests.
+  * **`ARCHITECTURE.md`** — comprehensive doc covering layers, concurrency, AI provider architecture, reader runtime, theming, error handling, project layout.
+  * **Build**: `xcodebuild` → **BUILD SUCCEEDED** (one in-pass fix: ThemeManager exhaustiveness).
+- 2026-05-23T22:30:00Z: **LIQUID-GLASS + ROBUSTNESS SESSION**
+  * **Centralized Liquid Glass shims** in `Shared/Views/LiquidGlass.swift` exposing `cruxGlassCard`, `cruxGlassFloating`, `cruxGlassBar`, `cruxScrollEdgeSoft`, `cruxGlassButton`, `cruxSidebarMaterial`. macOS 26+ uses real `glassEffect`/`buttonStyle(.glass)`/`scrollEdgeEffectStyle`; older systems fall back to `.regularMaterial`/`.bar` with hairline borders. LibraryView, SettingsView, ThreadPanel migrated to these helpers.
+  * **AI prompt customization (end-to-end)**: New `AIPromptPreset` enum with five built-in presets + Custom, new `AIPromptSettingsView` Settings tab, new `AppSettings.activePromptPresetId`/`customSystemPrompt`. The `AIProvider` protocol gained an `AIRequestOptions` parameter that carries the resolved system prompt + temperature; every provider (Claude, OpenAI, Ollama, LM Studio, Custom, Apple Intelligence) honors it.
+  * **Native streaming**: New `Shared/Services/SSEStream.swift` minimal SSE parser + `URLSession.dataChunks(for:)` extension. Native `streamResponse` implementations added to OpenAI (SSE `delta.content`), Claude (SSE `content_block_delta.delta.text`), Ollama (JSONL), LM Studio (SSE + `reasoning_content` fallback). `AIProviderManager.streamResponse` wired and ThreadPanelState consumes the stream into `streamingText`, with `applyChunk()` handling cumulative vs delta semantics correctly.
+  * **Network reachability**: New `NetworkMonitor` (`@Observable` `NWPathMonitor` singleton). ThreadPanel header shows an "Offline" pill when the active provider is cloud and `isOnline` is false. On-device providers (Ollama, LM Studio, Apple Intelligence) don't trigger the pill.
+  * **Annotation write safety**: `BookStorage.saveAnnotations` now writes to `<id>.json.tmp`, rotates the live file into `<id>.json.bak`, then atomically renames temp → live. `loadAnnotations` recovers from the backup when the live file is missing or fails to decode. `removeAnnotations` cleans up both. Logged through `AppLog.storage`.
+  * **Note templates**: New `NoteTemplate` enum with six markdown scaffolds (Character / Theme / Citation / Question / Connection / Vocabulary). Inserted via a "Templates" menu in `AnnotationEditView` — appends rather than overwriting.
+  * **Reading-time estimation**: New `ReadingTimeEstimator` exposing `minutes(forText:wpm:)`, `totalMinutes(forChapters:wpm:)`, and friendly labels.
+  * **Accessibility**: `AILoadingView` and `OnboardingView` consult `\.accessibilityReduceMotion`; new `AppSettings.respectsReduceMotion` for manual overrides.
+  * **Cross-book search extension**: NotesViewModel search now also matches inside AI thread message contents.
+  * **StoredBook.lastReadingCFI** field added for future precise-CFI restoration; existing scrollPosition restoration remains the live path.
+  * **Build status**: `xcodebuild -scheme Crux_macOS clean build` → **BUILD SUCCEEDED**. No new warnings.
+- 2026-05-23T19:30:00Z: **LOCAL-AI + UI OVERHAUL SESSION**
+  * **Ollama integration:** Full `OllamaProvider` (actor) speaking `/api/chat` + `/api/tags`. Surfaces a specific actionable error when the requested model isn't installed locally ("run `ollama pull X`"). Discovery returns model name + on-disk size.
+  * **LM Studio integration:** Full `LMStudioProvider` (actor) speaking OpenAI-compatible `/v1/chat/completions` + `/v1/models`. Falls back to `reasoning_content` when LM Studio hosts a reasoning model. Sends a `Bearer lm-studio` placeholder for the builds that require any non-empty token.
+  * **`LocalModelDiscovery` + `DiscoveredModel`:** Single facade the Settings UI calls; normalizes Ollama/LM Studio shapes.
+  * **`AIProviderFactory` + `AIProviderManager`:** Both factory paths dispatch the new types; manager exposes `discoverLocalModels(for:)` and the new `discoverLocalModels` no-API-key validation path.
+  * **Settings UX:** Type picker now shows symbol + subtitle, privacy callout replaces auth for local providers, model field becomes a discovery picker with refresh button and tailored "service not running" error messages, empty-state grows three quick-add chips (Apple Intelligence / Ollama / LM Studio), `ProviderRow` shows the provider's SF Symbol + on-device shield.
+  * **ThreadPanel overhaul:** `LastAction` retry plumbing, `retryLastAction()` for transient errors, calmer three-dot breathing `AILoadingView` (replaces 360° spin), new `ThreadErrorCard` (config-error vs transient differentiation, Retry button, Open Settings affordance), copy-on-hover for assistant messages, optimistic-user-message rollback on continueThread failures, model label shown in loading/empty states.
+  * **Library card polish:** `BookGridCard` rebuilt — floating cover with soft shadow, capsule progress bar, green "Done" pill for finished books, hover background instead of bordered card; new `FinishedBadge` overlay.
+  * **Reader chrome:** Toolbar consolidated — bookmarks now grouped under a single menu (add / view all / count), export moved into a More overflow menu, chapters gets ⌘L shortcut, bookmark icon fills when bookmarks exist.
+  * **EPUB parser logging:** `AppLog.parser` instrumentation for parse entry/failure paths, container fallback, OPF recovery, and chapter count.
+  * **Build status:** `xcodebuild -scheme Crux_macOS build` → **BUILD SUCCEEDED**. Same pre-existing warnings only.
+- 2026-05-23T17:45:00Z: **PRODUCTION-PASS SESSION** — Executed top-priority items from IMPROVEMENTS.md.
+  * **Security/Storage:** Added `Shared/Services/AppLog.swift` (categorized `os.Logger` channels) and removed loose `print()` calls in services; `ErrorHandler.logError` now emits at the matching severity (`fault`/`error`/`warning`/`info`).
+  * **Performance:** Added `Shared/Services/CoverImageCache.swift` (actor + `NSCache`, 64 MB / 200-entry limit) and `CachedCoverView`; library row + grid row now use it instead of decoding full-resolution `NSImage(data:)` per row.
+  * **Resilience:** Added `Shared/Services/RetryPolicy.swift` (exponential backoff with transient-error classifier) and wired it through `AIProviderManager.generateResponse(...)`. 4xx and missing-key errors still surface immediately.
+  * **Security/Hardening:** Hardened HTML export — every interpolation goes through `htmlEscaped`, and the export ships a strict `Content-Security-Policy` meta. Replaced force-unwrapped `UTType` with safe optional binding. Settings now validates custom provider URLs for HTTPS scheme/host and shows a contextual warning row; Save is disabled until the URL parses.
+  * **UX:** Added `Shared/Views/OnboardingView.swift` (four-page first-launch tour) gated on new `AppSettings.hasSeenOnboarding`; auto-shown on first launch in `ContentView` and re-triggerable from About settings.
+  * **Accessibility:** Library list and grid rows expose combined accessibility elements with descriptive labels ("Title, by Author, N percent read, selected").
+  * **Build-system fix:** Replaced `#if compiler(>=6.2)` Liquid Glass gates with `#available(macOS 26.0, *)` `ViewModifier` shims in `SettingsView`/`LibraryView`. The compiler check was firing under Xcode 26's Swift 6.2 even on a macOS 14 deployment target and produced build errors.
+  * **Build status:** `xcodebuild -scheme Crux_macOS build` → **BUILD SUCCEEDED** (SDK 26.2, deployment target macOS 14.0). Only pre-existing warnings remain (Sendable in `TagManagementService`, MainActor isolation in `ReaderView`).
 - 2026-01-22T03:15:00Z: **UI POLISH SESSION** - Enhanced onboarding and user experience:
   * LibraryView: Completely redesigned empty state with welcoming hero icon, quick start guide, and 3 onboarding tips
   * ThreadPanel: Created AILoadingView component with animated rotating sparkles icon and provider name display
@@ -370,3 +413,49 @@ Settings Model → AI Provider Protocol → Provider Implementations → Setting
   * **Key Discovery**: Most planning features are already implemented and working
   * **Next Priority**: Comprehensive end-to-end testing to identify real gaps
   * **Status**: Ready for QA phase - shift focus from implementation to testing & polish
+- 2026-05-24T00:33:00Z: **AI INSPECTOR + STREAMING UX PASS**
+  * **Live token rendering** — `ThreadPanelState.streamingText` was already
+    being accumulated but never displayed. New `StreamingResponseView`
+    renders the partial assistant reply as plain text (avoids markdown
+    re-layout flicker), with a `symbolEffect(.variableColor.iterative)`
+    sparkle while tokens flow. Replaces the bare AILoadingView in both
+    the first-explication and follow-up code paths.
+  * **Cancel support** — `ThreadPanelState.activeTask` now holds the
+    wrapper Task for whichever streaming request is in flight; `Stop`
+    button (⌘.) in `StreamingResponseView` calls `cancelCurrentRequest`,
+    cancellation propagates through the `AsyncThrowingStream` to the
+    underlying URLSessionTask. New `runTracked(_:)` helper lets call
+    sites store their work in `activeTask` cleanly. `CancellationError`
+    is handled explicitly in each catch so the UI doesn't surface
+    "cancelled" as a transient error needing retry.
+  * **Regenerate last response** — Hover the most recent assistant
+    message → "Regenerate" affordance. Pops the assistant reply (and
+    the prior user message, if any) and re-issues the same prompt with
+    the current settings/prompt preset. Works for first explications,
+    follow-ups, and chapter analyses.
+  * **Chapter-level Ask AI** — New toolbar Menu ("Ask AI", `sparkles`)
+    surfaces four preset chapter analyses (Summarize Chapter, Key
+    Themes & Motifs, Difficult Passages, Discussion Questions) plus a
+    free-form `ChapterAskSheet` (⌥⌘A). Routes through new
+    `ThreadPanelState.startChapterAnalysis(label:prompt:chapter:book:)`
+    which strips chapter HTML to plain text (capped at 20k chars) and
+    runs the streaming request. The result lives in the AI Inspector
+    sidebar and is ephemeral — no synthetic highlight is persisted into
+    annotations, so the chapter view stays clean.
+  * **AI Inspector sidebar** — ReaderView now uses native
+    `.inspector(isPresented:)` (macOS 14+) to host `ThreadPanel`.
+    Toggle via the More menu or `⌥⌘I`. Auto-opens when the user fires a
+    chapter-scope AI action, so the streaming + Stop + Regenerate UX is
+    immediately visible. The inspector also surfaces this chapter's
+    existing highlights when no thread is active — same component, two
+    purposes.
+  * **ThreadPanel composer wired through `runTracked`** — `startNewThread`
+    and `sendFollowUp` now stash their work into `state.activeTask` so
+    cancellation reaches highlight-thread workflows too, not only the
+    inspector flow.
+  * **Build status:** `xcodebuild -scheme Crux_macOS -derivedDataPath ./DerivedData build`
+    ⇒ **BUILD SUCCEEDED**. Only the same pre-existing warnings
+    (TagManagementService Sendable capture, ReaderView pauseSession /
+    resumeSession MainActor isolation, ReadingGoalsView unused
+    `monthStart`, AnnotationExportView unused `url`,
+    LibraryBackupService immutable-property decode hint).
