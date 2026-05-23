@@ -1,6 +1,9 @@
 import SwiftUI
 import SwiftData
 
+// Note: Liquid Glass / Materials modifiers live in `LiquidGlass.swift`
+// (cruxGlassCard, cruxScrollEdgeSoft, cruxGlassButton, etc).
+
 // MARK: - Main Library View (full screen)
 
 enum LibrarySortOption: String, CaseIterable, Identifiable {
@@ -90,6 +93,13 @@ struct LibraryMainView: View {
 
     // Drag & drop state
     @State private var isDropTargeted = false
+
+    // Multi-file import progress — drives the BatchImportProgress overlay
+    // when the user drops more than one EPUB. The keys are user-friendly
+    // file names; values are per-file progress so the sheet can update
+    // each line independently.
+    @State private var batchImportProgress: [BatchImportItem] = []
+    @State private var isBatchImportActive: Bool = false
 
     // Batch operations state
     @State private var isSelectionMode = false
@@ -404,6 +414,16 @@ struct LibraryMainView: View {
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             handleDrop(providers: providers)
         }
+        .overlay {
+            // Batch import progress sheet (only shown for 2+ files)
+            if isBatchImportActive && !batchImportProgress.isEmpty {
+                Color.black.opacity(0.18)
+                    .ignoresSafeArea()
+                BatchImportProgressView(items: batchImportProgress)
+                    .transition(.scale(scale: 0.96).combined(with: .opacity))
+            }
+        }
+        .animation(.easeOut(duration: 0.18), value: isBatchImportActive)
         .overlay {
             // Drop target indicator
             if isDropTargeted {
@@ -1043,19 +1063,32 @@ struct LibraryMainView: View {
 
     private func handleDrop(providers: [NSItemProvider]) -> Bool {
         #if os(macOS)
-        // Process each dropped item
+        // Collect every dropped file URL upfront so we know the total
+        // and can show a per-file progress sheet. `loadItem` is async,
+        // so we use a dispatch group to wait for resolution before
+        // kicking off the import batch.
+        let group = DispatchGroup()
+        var urls: [URL] = []
+        let urlsLock = NSLock()
+
         for provider in providers {
-            provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { item, error in
+            group.enter()
+            provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { item, _ in
+                defer { group.leave() }
                 guard let data = item as? Data,
                       let url = URL(dataRepresentation: data, relativeTo: nil),
                       url.pathExtension.lowercased() == "epub" else {
                     return
                 }
+                urlsLock.lock()
+                urls.append(url)
+                urlsLock.unlock()
+            }
+        }
 
-                // Import the book on the main actor
-                Task { @MainActor in
-                    await onImportBook(url)
-                }
+        group.notify(queue: .main) {
+            Task { @MainActor in
+                await runBatchImport(urls: urls)
             }
         }
         return true
@@ -1063,6 +1096,48 @@ struct LibraryMainView: View {
         return false
         #endif
     }
+
+    /// Run an import batch with per-file progress feedback. For a single
+    /// file we skip the sheet (it would just flicker on screen); for
+    /// multiple files we show `BatchImportProgressView` until every
+    /// item resolves.
+    @MainActor
+    private func runBatchImport(urls: [URL]) async {
+        guard !urls.isEmpty else { return }
+
+        // Single-file drops keep the existing simple flow.
+        if urls.count == 1 {
+            await onImportBook(urls[0])
+            return
+        }
+
+        batchImportProgress = urls.map { url in
+            BatchImportItem(id: UUID(), fileName: url.lastPathComponent, status: .pending)
+        }
+        isBatchImportActive = true
+
+        // Import serially so we don't fight for storage I/O and so the
+        // sheet's progress updates are easy to read.
+        for (index, url) in urls.enumerated() {
+            batchImportProgress[index].status = .importing
+            await onImportBook(url)
+            batchImportProgress[index].status = .succeeded
+        }
+
+        // Hold the completion state briefly so the user sees the final
+        // checkmarks before the sheet dismisses.
+        try? await Task.sleep(nanoseconds: 700_000_000)
+        isBatchImportActive = false
+        batchImportProgress.removeAll()
+    }
+}
+
+/// One row in the drag & drop batch import progress sheet.
+struct BatchImportItem: Identifiable, Equatable {
+    enum Status: Equatable { case pending, importing, succeeded, failed(String) }
+    let id: UUID
+    let fileName: String
+    var status: Status
 }
 
 struct LibrarySearchBar: View {
@@ -1106,6 +1181,10 @@ struct BookListView: View {
     let onShowDetails: (UUID) -> Void
     let onDeleteBook: (StoredBook) -> Void
 
+    #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+    #endif
+
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
@@ -1140,14 +1219,40 @@ struct BookListView: View {
                             onSelectBook(book.id)
                         }
                     }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(accessibilityLabel(for: book))
+                    .accessibilityHint(isSelectionMode ? "Double tap to toggle selection" : "Double tap to open book")
+                    .accessibilityAddTraits(.isButton)
                     .contextMenu {
                         // Disable context menu in selection mode
                         if !isSelectionMode {
+                            Button {
+                                onSelectBook(book.id)
+                            } label: {
+                                Label("Open", systemImage: "book")
+                            }
+
+                            #if os(macOS)
+                            Button {
+                                openWindow(id: "book-reader", value: book.id)
+                            } label: {
+                                Label("Open in New Window", systemImage: "rectangle.stack.badge.plus")
+                            }
+                            #endif
+
                             Button {
                                 onShowDetails(book.id)
                             } label: {
                                 Label("Show Details", systemImage: "info.circle")
                             }
+
+                            #if os(macOS)
+                            Button {
+                                revealInFinder(bookId: book.id)
+                            } label: {
+                                Label("Reveal in Finder", systemImage: "folder")
+                            }
+                            #endif
 
                             if !collections.isEmpty {
                                 Menu {
@@ -1171,6 +1276,8 @@ struct BookListView: View {
                                 }
                             }
 
+                            Divider()
+
                             Button(role: .destructive) {
                                 onDeleteBook(book)
                             } label: {
@@ -1187,6 +1294,7 @@ struct BookListView: View {
             }
             .padding(.vertical, 4)
         }
+        .cruxScrollEdgeSoft()
         .frame(maxWidth: 720)
         .frame(maxWidth: .infinity)
     }
@@ -1197,6 +1305,26 @@ struct BookListView: View {
         } else {
             selectedBooks.insert(bookId)
         }
+    }
+
+    private func accessibilityLabel(for book: StoredBook) -> String {
+        var parts: [String] = [book.title]
+        if let author = book.author, !author.isEmpty {
+            parts.append("by \(author)")
+        }
+        if book.totalChapters > 0 {
+            let pct: Int
+            if book.isFinished {
+                pct = 100
+            } else {
+                pct = Int((Double(book.currentChapterIndex) / Double(book.totalChapters)) * 100)
+            }
+            parts.append("\(pct) percent read")
+        }
+        if isSelectionMode {
+            parts.append(selectedBooks.contains(book.id) ? "selected" : "not selected")
+        }
+        return parts.joined(separator: ", ")
     }
 
     private func toggleBookInCollection(book: StoredBook, collection: BookCollection) {
@@ -1213,221 +1341,26 @@ struct BookListView: View {
         }
         try? modelContext.save()
     }
+
+    #if os(macOS)
+    /// Pop the EPUB file open in Finder using
+    /// `NSWorkspace.activateFileViewerSelecting(...)`. Resolves the
+    /// stored book URL on a Task because `BookStorage.bookURL(for:)` is
+    /// `await`-only; selection is then dispatched back to the main
+    /// thread because AppKit Workspace calls must happen on main.
+    fileprivate func revealInFinder(bookId: UUID) {
+        Task {
+            let url = await BookStorage.shared.bookURL(for: bookId)
+            await MainActor.run {
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            }
+        }
+    }
+    #endif
 }
 
-struct BookListRow: View {
-    let book: StoredBook
-    let stats: AnnotationStats?
-    let onShowDetails: () -> Void
-    @State private var isHovered = false
-
-    private var progressFraction: Double {
-        guard book.totalChapters > 0 else { return 0 }
-        if book.isFinished { return 1.0 }
-        return Double(book.currentChapterIndex) / Double(book.totalChapters)
-    }
-
-    private var progressPercent: Int {
-        Int(progressFraction * 100)
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            // Cover thumbnail
-            if let coverData = book.coverImageData,
-               let nsImage = NSImage(data: coverData) {
-                Image(nsImage: nsImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 40, height: 60)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-            } else {
-                // Fallback placeholder
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(
-                        LinearGradient(
-                            colors: [.blue.opacity(0.4), .purple.opacity(0.4)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 40, height: 60)
-                    .overlay {
-                        Image(systemName: "book.fill")
-                            .font(.system(size: 16))
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
-            }
-
-            VStack(alignment: .leading, spacing: 3) {
-                // Line 1: Title + Info button + Added date
-                HStack(alignment: .top) {
-                    Text(book.title)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-
-                    Spacer(minLength: 8)
-
-                    if isHovered {
-                        Button {
-                            onShowDetails()
-                        } label: {
-                            Image(systemName: "info.circle")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Show book details")
-                    }
-
-                    Text("Added \(book.addedAt.relativeShort)")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.tertiary)
-                }
-
-                // Line 2: Author · Publisher · Year · Language
-                MetadataLine(book: book)
-
-                // Line 3: Progress bar + Chapter position + Last read
-                ProgressLine(book: book, progressFraction: progressFraction, progressPercent: progressPercent)
-
-                // Line 4: Annotations + Subjects
-                AnnotationLine(stats: stats, subjects: book.subjects)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(isHovered ? Color.primary.opacity(0.03) : Color.clear)
-        .onHover { hovering in
-            isHovered = hovering
-        }
-    }
-}
-
-// MARK: - Row Components
-
-struct MetadataLine: View {
-    let book: StoredBook
-
-    var body: some View {
-        HStack(spacing: 0) {
-            let parts = metadataParts
-            ForEach(Array(parts.enumerated()), id: \.offset) { index, part in
-                Text(part)
-                if index < parts.count - 1 {
-                    Text(" · ")
-                        .foregroundStyle(.quaternary)
-                }
-            }
-        }
-        .font(.system(size: 12))
-        .foregroundStyle(.secondary)
-        .lineLimit(1)
-    }
-
-    private var metadataParts: [String] {
-        var parts: [String] = []
-        if let author = book.author, !author.isEmpty {
-            parts.append(author)
-        }
-        if let publisher = book.publisher, !publisher.isEmpty {
-            parts.append(publisher)
-        }
-        if let year = book.publicationYear {
-            parts.append(String(year))
-        }
-        if let language = book.language, !language.isEmpty {
-            parts.append(language.uppercased())
-        }
-        return parts
-    }
-}
-
-struct ProgressLine: View {
-    let book: StoredBook
-    let progressFraction: Double
-    let progressPercent: Int
-
-    var body: some View {
-        HStack(spacing: 8) {
-            // Progress bar (flex width)
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.primary.opacity(0.08))
-
-                    Capsule()
-                        .fill(book.isFinished ? Color.green : Color.primary.opacity(0.4))
-                        .frame(width: max(0, geo.size.width * progressFraction))
-                }
-            }
-            .frame(height: 4)
-
-            // Chapter progress
-            if book.totalChapters > 0 {
-                Text(chapterText)
-                    .font(.system(size: 11, weight: .medium).monospacedDigit())
-                    .foregroundStyle(book.isFinished ? .green : .secondary)
-            }
-
-            // Last read
-            if let lastOpened = book.lastOpenedAt {
-                Text("·")
-                    .foregroundStyle(.quaternary)
-                Text("Read \(lastOpened.relativeShort)")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
-            }
-        }
-    }
-
-    private var chapterText: String {
-        if book.isFinished {
-            return "Done"
-        }
-        return "Ch \(book.currentChapterIndex + 1)/\(book.totalChapters) (\(progressPercent)%)"
-    }
-}
-
-struct AnnotationLine: View {
-    let stats: AnnotationStats?
-    let subjects: [String]
-
-    var body: some View {
-        HStack(spacing: 0) {
-            // Annotation stats
-            if let stats = stats, stats.highlightCount > 0 || stats.threadCount > 0 {
-                HStack(spacing: 8) {
-                    if stats.highlightCount > 0 {
-                        Label("\(stats.highlightCount)", systemImage: "highlighter")
-                            .font(.system(size: 11))
-                    }
-                    if stats.threadCount > 0 {
-                        Label("\(stats.threadCount)", systemImage: "bubble.left")
-                            .font(.system(size: 11))
-                    }
-                }
-                .foregroundStyle(.tertiary)
-
-                if !subjects.isEmpty {
-                    Text(" · ")
-                        .foregroundStyle(.quaternary)
-                }
-            }
-
-            // Subjects
-            if !subjects.isEmpty {
-                Text(subjects.prefix(3).joined(separator: ", "))
-                    .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 0)
-        }
-    }
-}
+// BookListRow + MetadataLine + ProgressLine + AnnotationLine moved to
+// Shared/Views/Library/BookListRow.swift to keep this file manageable.
 
 // MARK: - Grid View
 
@@ -1441,6 +1374,10 @@ struct BookGridView: View {
     let onSelectBook: (UUID) -> Void
     let onShowDetails: (UUID) -> Void
     let onDeleteBook: (StoredBook) -> Void
+
+    #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+    #endif
 
     private let columns = [
         GridItem(.adaptive(minimum: 200, maximum: 250), spacing: 16)
@@ -1485,14 +1422,40 @@ struct BookGridView: View {
                             onSelectBook(book.id)
                         }
                     }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(accessibilityLabel(for: book))
+                    .accessibilityHint(isSelectionMode ? "Double tap to toggle selection" : "Double tap to open book")
+                    .accessibilityAddTraits(.isButton)
                     .contextMenu {
                         // Disable context menu in selection mode
                         if !isSelectionMode {
+                            Button {
+                                onSelectBook(book.id)
+                            } label: {
+                                Label("Open", systemImage: "book")
+                            }
+
+                            #if os(macOS)
+                            Button {
+                                openWindow(id: "book-reader", value: book.id)
+                            } label: {
+                                Label("Open in New Window", systemImage: "rectangle.stack.badge.plus")
+                            }
+                            #endif
+
                             Button {
                                 onShowDetails(book.id)
                             } label: {
                                 Label("Show Details", systemImage: "info.circle")
                             }
+
+                            #if os(macOS)
+                            Button {
+                                revealInFinder(bookId: book.id)
+                            } label: {
+                                Label("Reveal in Finder", systemImage: "folder")
+                            }
+                            #endif
 
                             if !collections.isEmpty {
                                 Menu {
@@ -1516,6 +1479,8 @@ struct BookGridView: View {
                                 }
                             }
 
+                            Divider()
+
                             Button(role: .destructive) {
                                 onDeleteBook(book)
                             } label: {
@@ -1527,6 +1492,7 @@ struct BookGridView: View {
             }
             .padding()
         }
+        .cruxScrollEdgeSoft()
         .frame(maxWidth: .infinity)
     }
 
@@ -1536,6 +1502,26 @@ struct BookGridView: View {
         } else {
             selectedBooks.insert(bookId)
         }
+    }
+
+    private func accessibilityLabel(for book: StoredBook) -> String {
+        var parts: [String] = [book.title]
+        if let author = book.author, !author.isEmpty {
+            parts.append("by \(author)")
+        }
+        if book.totalChapters > 0 {
+            let pct: Int
+            if book.isFinished {
+                pct = 100
+            } else {
+                pct = Int((Double(book.currentChapterIndex) / Double(book.totalChapters)) * 100)
+            }
+            parts.append("\(pct) percent read")
+        }
+        if isSelectionMode {
+            parts.append(selectedBooks.contains(book.id) ? "selected" : "not selected")
+        }
+        return parts.joined(separator: ", ")
     }
 
     private func toggleBookInCollection(book: StoredBook, collection: BookCollection) {
@@ -1552,127 +1538,21 @@ struct BookGridView: View {
         }
         try? modelContext.save()
     }
-}
 
-struct BookGridCard: View {
-    let book: StoredBook
-    let stats: AnnotationStats?
-    let onShowDetails: () -> Void
-    @State private var isHovered = false
-
-    private var progressFraction: Double {
-        guard book.totalChapters > 0 else { return 0 }
-        if book.isFinished { return 1.0 }
-        return Double(book.currentChapterIndex) / Double(book.totalChapters)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Book cover with info button
-            ZStack(alignment: .topTrailing) {
-                if let coverData = book.coverImageData,
-                   let nsImage = NSImage(data: coverData) {
-                    Image(nsImage: nsImage)
-                        .resizable()
-                        .scaledToFill()
-                        .aspectRatio(0.7, contentMode: .fit)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                } else {
-                    // Fallback placeholder
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(
-                            LinearGradient(
-                                colors: [.blue.opacity(0.6), .purple.opacity(0.6)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .aspectRatio(0.7, contentMode: .fit)
-                        .overlay {
-                            Image(systemName: "book.fill")
-                                .font(.system(size: 48))
-                                .foregroundStyle(.white.opacity(0.8))
-                        }
-                }
-
-                // Info button overlay (appears on hover)
-                if isHovered {
-                    Button {
-                        onShowDetails()
-                    } label: {
-                        Image(systemName: "info.circle.fill")
-                            .font(.system(size: 20))
-                            .foregroundStyle(.white)
-                            .background(
-                                Circle()
-                                    .fill(.black.opacity(0.3))
-                                    .padding(-6)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .padding(8)
-                    .help("Show book details")
-                }
-            }
-
-            // Book info
-            VStack(alignment: .leading, spacing: 6) {
-                Text(book.title)
-                    .font(.system(size: 14, weight: .semibold))
-                    .lineLimit(2)
-                    .foregroundStyle(.primary)
-
-                if let author = book.author {
-                    Text(author)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-
-                // Progress indicator
-                if book.totalChapters > 0 {
-                    HStack(spacing: 6) {
-                        ProgressView(value: progressFraction)
-                            .tint(.accentColor)
-
-                        Text("\(Int(progressFraction * 100))%")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                    }
-                }
-
-                // Stats
-                if let stats = stats, stats.highlightCount > 0 {
-                    HStack(spacing: 8) {
-                        Label("\(stats.highlightCount)", systemImage: "highlighter")
-                            .font(.caption2)
-                            .foregroundStyle(.blue)
-
-                        if stats.threadCount > 0 {
-                            Label("\(stats.threadCount)", systemImage: "bubble.left.and.bubble.right")
-                                .font(.caption2)
-                                .foregroundStyle(.purple)
-                        }
-                    }
-                }
+    #if os(macOS)
+    fileprivate func revealInFinder(bookId: UUID) {
+        Task {
+            let url = await BookStorage.shared.bookURL(for: bookId)
+            await MainActor.run {
+                NSWorkspace.shared.activateFileViewerSelecting([url])
             }
         }
-        .padding(12)
-        .background(isHovered ? Color(.controlBackgroundColor) : Color.clear)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-        )
-        .shadow(color: isHovered ? .black.opacity(0.1) : .clear, radius: 8, x: 0, y: 4)
-        .scaleEffect(isHovered ? 1.02 : 1.0)
-        .animation(.easeInOut(duration: 0.2), value: isHovered)
-        .onHover { hovering in
-            isHovered = hovering
-        }
     }
+    #endif
 }
+
+// BookGridCard + FinishedBadge moved to
+// Shared/Views/Library/BookGridCard.swift.
 
 // MARK: - Filter Badge
 
@@ -1771,12 +1651,7 @@ struct EmptyLibraryView: View {
                 )
             }
             .padding(24)
-            .background(Color.secondary.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.secondary.opacity(0.1), lineWidth: 1)
-            )
+            .cruxGlassCard(cornerRadius: 16)
             .frame(maxWidth: 400)
 
             Button(action: onAddBook) {
@@ -1789,14 +1664,7 @@ struct EmptyLibraryView: View {
                 .padding(.horizontal, 24)
                 .padding(.vertical, 14)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(
-                LinearGradient(
-                    colors: [Color.blue, Color.purple],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
+            .cruxGlassButton(prominent: true)
             .controlSize(.large)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

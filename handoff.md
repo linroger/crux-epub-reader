@@ -527,3 +527,10 @@ Settings Model → AI Provider Protocol → Provider Implementations → Setting
   * **Bugfix:** `isEligibleForPrediction` is unavailable on macOS —
     initial build failed at line 665; gated to `#if os(iOS)`.
   * **Build status:** `xcodebuild build` ⇒ **BUILD SUCCEEDED**.
+- 2026-05-24T01:25:00Z: **REVEAL IN FINDER PASS**
+  * Added "Reveal in Finder" to both list and grid context menus in
+    LibraryView. Each section keeps its own `revealInFinder(bookId:)`
+    helper that resolves the URL via `BookStorage.bookURL(for:)` (async)
+    then dispatches `NSWorkspace.activateFileViewerSelecting(...)` on
+    the main actor. macOS-only — iOS doesn't expose a Finder equivalent.
+  * **Build status:** `xcodebuild build` ⇒ **BUILD SUCCEEDED**.
