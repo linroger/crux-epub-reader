@@ -481,3 +481,30 @@ Settings Model → AI Provider Protocol → Provider Implementations → Setting
     before.
   * **Build status:** `xcodebuild build` ⇒ **BUILD SUCCEEDED**. No
     new warnings.
+- 2026-05-24T01:02:00Z: **NATIVE MACOS — SPOTLIGHT INTEGRATION PASS**
+  * **`SpotlightIndexer` actor** — wraps `CSSearchableIndex.default()`
+    with `indexBook(_:)`, `indexBooks(_:)`, `unindexBook(id:)`, and
+    `clearAll()`. Each `StoredBook` becomes a `CSSearchableItem` keyed
+    by the book's UUID; the attribute set carries title, author,
+    publisher, year (synthesised contentCreationDate), subjects + tags
+    as keywords, and the cover thumbnail when present. Description
+    falls back to a synthesised summary ("by Author · year · 42% read")
+    when no publisher blurb exists.
+  * **Library lifecycle integration** — `ContentView.importBook(_:)`
+    now hands the new `StoredBook` to the indexer; `deleteBook(_:)`
+    issues an `unindexBook(id:)` alongside the SwiftData delete. A new
+    `reconcileSpotlightIndex()` runs from `recoverOrphanedBooks()` so
+    every cold launch upserts the entire current library — cheap, and
+    closes the gap if a deletion happened while the app was offline.
+  * **Activity-continuation handling** — `CruxApp` registers two
+    `.onContinueUserActivity` handlers on the main scene:
+    `CSSearchableItemActionType` (Spotlight result selection,
+    identifier in `CSSearchableItemActivityIdentifier`) and
+    `SpotlightIndexer.activityType` ("com.crux.openBook", payload at
+    `userInfo[SpotlightIndexer.userInfoBookIDKey]`). Both routes set
+    `AppState.selectedBookId`, which `ContentView` watches to surface
+    the chosen book.
+  * **xcodegen regenerate** — `Crux.xcodeproj` rebuilt to pick up the
+    new `Shared/Services/SpotlightIndexer.swift`.
+  * **Build status:** `xcodebuild build` ⇒ **BUILD SUCCEEDED**. Only
+    the same pre-existing warnings remain.
