@@ -6,7 +6,7 @@
 
 Crux is a reading workspace, not just a reader. Highlight a passage and an AI thread opens beside it; ask follow-ups, switch providers (cloud or fully on-device), and save the insight back into your library. Books are indexed into macOS Spotlight, so the result you click in the system search opens directly in the reader. Every long AI response streams token-by-token, can be stopped with `⌘.`, and can be regenerated, copied, or shared via the system share sheet.
 
-![Library — Continue Reading](Screenshots/Crux%202026-05-24%20at%2016.33.06%402x.png)
+![Library — Continue Reading](Screenshots/Crux%202026-05-24%20at%2016.33.06%402x.jpg)
 
 ---
 
@@ -28,25 +28,25 @@ Crux is a reading workspace, not just a reader. Highlight a passage and an AI th
 
 Each highlight gets its own AI-powered margin note. Streams render token-by-token; the active passage stays anchored as you scroll.
 
-![Reader with margin AI threads](Screenshots/Crux%202026-05-24%20at%2016.32.44%402x.png)
+![Reader with margin AI threads](Screenshots/Crux%202026-05-24%20at%2016.32.44%402x.jpg)
 
 ### Library — Continue Reading
 
 Cover-forward library with per-book progress, finished badges, drag-and-drop import, and right-click context for *Open in New Window*, *Show Details*, *Reveal in Finder*, *Collections*, and *Remove*.
 
-![Library view](Screenshots/Crux%202026-05-24%20at%2016.33.06%402x.png)
+![Library view](Screenshots/Crux%202026-05-24%20at%2016.33.06%402x.jpg)
 
 ### Settings — AI Providers
 
 Configure multiple providers side-by-side: Claude, OpenAI, custom endpoints, Ollama, LM Studio, Apple Intelligence. The active provider is marked; on-device providers get a shield badge and skip the "Offline" pill that cloud providers show when network drops.
 
-![Settings → AI Providers](Screenshots/Crux%202026-05-24%20at%2016.33.14%402x.png)
+![Settings → AI Providers](Screenshots/Crux%202026-05-24%20at%2016.33.14%402x.jpg)
 
 ### Settings — AI Prompt
 
 Five built-in system prompts (Scholarly, Casual, Socratic, Minimalist, Technical) plus a Custom slot. The active prompt routes through `AIRequestOptions` so every provider honors the same voice.
 
-![Settings → AI Prompt](Screenshots/Crux%202026-05-24%20at%2016.33.27%402x.png)
+![Settings → AI Prompt](Screenshots/Crux%202026-05-24%20at%2016.33.27%402x.jpg)
 
 ---
 
