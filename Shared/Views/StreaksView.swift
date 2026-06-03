@@ -212,7 +212,7 @@ struct StreaksView: View {
                     }
                 }
                 .padding()
-                .background(Color(.controlBackgroundColor))
+                .background(Color.cruxControlBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
             }
         }
@@ -314,7 +314,7 @@ struct AchievementBadge: View {
         }
         .padding()
         .frame(minWidth: 150, minHeight: 180)
-        .background(Color(.controlBackgroundColor))
+        .background(Color.cruxControlBackground)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .opacity(isUnlocked ? 1.0 : 0.6)
     }

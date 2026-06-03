@@ -154,7 +154,7 @@ struct ReadingGoalsView: View {
             )
         }
         .padding()
-        .background(Color(.controlBackgroundColor))
+        .background(Color.cruxControlBackground)
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
@@ -202,7 +202,7 @@ struct ReadingGoalsView: View {
                 DetailRow(label: "Created", value: goal.createdAt.formatted(date: .abbreviated, time: .omitted))
             }
             .padding()
-            .background(Color(.controlBackgroundColor))
+            .background(Color.cruxControlBackground)
             .clipShape(RoundedRectangle(cornerRadius: 10))
         }
     }
@@ -280,7 +280,7 @@ struct ReadingGoalsView: View {
                 }
             }
             .padding()
-            .background(Color(.controlBackgroundColor))
+            .background(Color.cruxControlBackground)
             .clipShape(RoundedRectangle(cornerRadius: 10))
         }
     }
@@ -485,7 +485,7 @@ struct AchievementCard: View {
                 .foregroundStyle(.primary)
         }
         .padding()
-        .background(Color(.controlBackgroundColor))
+        .background(Color.cruxControlBackground)
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }

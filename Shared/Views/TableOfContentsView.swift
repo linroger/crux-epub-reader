@@ -64,7 +64,7 @@ struct TableOfContentsView: View {
             .padding(.vertical, 10)
             .background(
                 LinearGradient(
-                    colors: [Color(.controlBackgroundColor), Color(.controlBackgroundColor).opacity(0.8)],
+                    colors: [Color.cruxControlBackground, Color.cruxControlBackground.opacity(0.8)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
@@ -95,7 +95,7 @@ struct TableOfContentsView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Color(.textBackgroundColor))
+            .background(Color.cruxTextBackground)
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)

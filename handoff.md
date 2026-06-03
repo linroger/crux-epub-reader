@@ -534,3 +534,44 @@ Settings Model → AI Provider Protocol → Provider Implementations → Setting
     then dispatches `NSWorkspace.activateFileViewerSelecting(...)` on
     the main actor. macOS-only — iOS doesn't expose a Finder equivalent.
   * **Build status:** `xcodebuild build` ⇒ **BUILD SUCCEEDED**.
+- 2026-06-04T01:10:00Z: **MORE AI PROVIDERS + TOC HTML FIX + iOS BUILD RESTORED**
+  * **DeepSeek / MiniMax / Kimi providers** — three new first-class
+    `ProviderType` cases (endpoints, default models, subtitles, SF
+    Symbols). `AIProviderFactory` routes all three through the existing
+    `OpenAIProvider` (they're OpenAI-compatible: Bearer auth, `choices[].
+    message.content`, SSE `delta.content` with `[DONE]`). No new
+    networking code. They auto-surface in the Settings provider picker.
+  * **Editable cloud model field** — replaced the fixed model `Picker`
+    with an editable `TextField` + "Suggested models" menu so custom /
+    newly-released model IDs work (and "custom endpoints" are fully
+    supported across every cloud provider).
+  * **LM Studio** — verified end-to-end (routing, `/v1/models`
+    discovery, OpenAI-shape streaming + `reasoning_content` fallback);
+    already complete, no change needed.
+  * **TOC HTML tags fixed** (the user-named P0) — new
+    `EPUBParser.cleanTitle(_:)` strips nested markup, decodes entities,
+    collapses whitespace. Applied in `parseNavList` (EPUB3 nav: capture
+    widened `[^<]+`→`[\s\S]*?`; href now accepts single/double quotes),
+    `processNavPointRecursive` (EPUB2 NCX `<text>`), and
+    `extractChapterTitle` (spine/HTML-fallback headings). Standalone
+    Swift harness: 5/5 cases pass, incl. the nested-`<span>`/`<i>`/`<br>`
+    cases the old regex dropped entirely.
+  * **iOS target restored** — the iOS app had not been built in recent
+    sessions and was fully broken; now **BUILD SUCCEEDED**, macOS
+    unaffected. Fixes: shared-code `NSImage` → `CachedCoverView`
+    (RecentBooksSection, BookDetailView); 25 macOS-only semantic colors
+    (`Color(.controlBackgroundColor)` etc.) → new `Color.crux*Background`
+    shims in `LiquidGlass.swift`; `Color.toHex()` NSColor→platform-split;
+    removed spurious whole-file `#if os(macOS)` gates on `SettingsView`
+    and `AIPromptSettingsView` (iOS's `iOSSettingsView` depends on their
+    subviews + the `Color(hex:)` extension); `.pickerStyle(.radioGroup)`
+    (macOS-only) guarded with iOS `.segmented` fallback in 3 views;
+    `AppleIntelligenceProvider` FoundationModels availability corrected
+    `iOS 18.4`→`iOS 26.0`; macOS-only `performRestore()` restore sheet
+    gated in LibraryView.
+  * **Build status:** `xcodebuild -scheme Crux_macOS` ⇒ **BUILD
+    SUCCEEDED**; `xcodebuild -scheme Crux_iOS -destination 'iPhone 17
+    Pro'` ⇒ **BUILD SUCCEEDED**.
+  * **Open follow-up:** iOS compiles but its runtime layout/behavior is
+    unverified (the app was de-facto macOS-only). Recommend a dedicated
+    iOS QA pass before shipping the iOS build.

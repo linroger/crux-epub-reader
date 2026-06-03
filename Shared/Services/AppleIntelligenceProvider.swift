@@ -4,8 +4,8 @@ import Foundation
 import FoundationModels
 
 /// AI Provider using Apple's on-device Foundation Models (Apple Intelligence)
-/// Available on devices with Apple Intelligence support (macOS 26+, iOS 18.4+)
-@available(macOS 26.0, iOS 18.4, *)
+/// Available on devices with Apple Intelligence support (macOS 26+, iOS 26+)
+@available(macOS 26.0, iOS 26.0, *)
 final class AppleIntelligenceProvider: AIProvider, @unchecked Sendable {
     let id: UUID
     let name: String
@@ -48,23 +48,14 @@ final class AppleIntelligenceProvider: AIProvider, @unchecked Sendable {
     func generateResponse(
         for selection: String,
         context: String?,
-        conversationHistory: [ThreadMessage]
+        conversationHistory: [ThreadMessage],
+        options: AIRequestOptions
     ) async throws -> String {
         // Create a new session with instructions for margin notes
-        let session = LanguageModelSession(instructions: """
-            You are generating margin notes for an AI-powered book reader app. Your notes appear \
-            inline alongside highlighted text and can start discussion threads.
-            
-            Write concise, insightful margin notes in 2-4 sentences. Focus on:
-            - Literal vs. figurative meaning, symbolic layers
-            - Literary devices, formal techniques
-            - Etymology, translation issues, textual variants
-            - Historical, philosophical, or theological context
-            - Connection to the work's broader argument or structure
-            - Intertextual allusions or echoes
-            
-            Be terse and substantive. Skip surface-level observations. Assume literary familiarity.
-            """)
+        let instructions = options.systemPrompt?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            ? options.systemPrompt!
+            : Self.defaultInstructions
+        let session = LanguageModelSession(instructions: instructions)
         
         // Build the prompt with conversation history
         var prompt = ""
@@ -77,8 +68,8 @@ final class AppleIntelligenceProvider: AIProvider, @unchecked Sendable {
         if !conversationHistory.isEmpty {
             prompt += "Previous discussion:\n"
             for message in conversationHistory {
-                let role = message.isUser ? "Reader" : "Assistant"
-                prompt += "\(role): \(message.content)\n"
+                let roleLabel = message.role == .user ? "Reader" : "Assistant"
+                prompt += "\(roleLabel): \(message.content)\n"
             }
             prompt += "\n"
         }
@@ -98,23 +89,13 @@ final class AppleIntelligenceProvider: AIProvider, @unchecked Sendable {
     func streamResponse(
         for selection: String,
         context: String?,
-        conversationHistory: [ThreadMessage]
+        conversationHistory: [ThreadMessage],
+        options: AIRequestOptions
     ) async throws -> AsyncThrowingStream<String, Error> {
-        // Create a new session with instructions
-        let session = LanguageModelSession(instructions: """
-            You are generating margin notes for an AI-powered book reader app. Your notes appear \
-            inline alongside highlighted text and can start discussion threads.
-            
-            Write concise, insightful margin notes in 2-4 sentences. Focus on:
-            - Literal vs. figurative meaning, symbolic layers
-            - Literary devices, formal techniques
-            - Etymology, translation issues, textual variants
-            - Historical, philosophical, or theological context
-            - Connection to the work's broader argument or structure
-            - Intertextual allusions or echoes
-            
-            Be terse and substantive. Skip surface-level observations. Assume literary familiarity.
-            """)
+        let instructions = options.systemPrompt?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            ? options.systemPrompt!
+            : Self.defaultInstructions
+        let session = LanguageModelSession(instructions: instructions)
         
         // Build the prompt
         var prompt = ""
@@ -126,8 +107,8 @@ final class AppleIntelligenceProvider: AIProvider, @unchecked Sendable {
         if !conversationHistory.isEmpty {
             prompt += "Previous discussion:\n"
             for message in conversationHistory {
-                let role = message.isUser ? "Reader" : "Assistant"
-                prompt += "\(role): \(message.content)\n"
+                let roleLabel = message.role == .user ? "Reader" : "Assistant"
+                prompt += "\(roleLabel): \(message.content)\n"
             }
             prompt += "\n"
         }
@@ -154,6 +135,20 @@ final class AppleIntelligenceProvider: AIProvider, @unchecked Sendable {
             }
         }
     }
+
+    private static let defaultInstructions = """
+    You are generating margin notes for an AI-powered book reader app. Your notes appear inline alongside highlighted text and can start discussion threads.
+
+    Write concise, insightful margin notes in 2-4 sentences. Focus on:
+    - Literal vs. figurative meaning, symbolic layers
+    - Literary devices, formal techniques
+    - Etymology, translation issues, textual variants
+    - Historical, philosophical, or theological context
+    - Connection to the work's broader argument or structure
+    - Intertextual allusions or echoes
+
+    Be terse and substantive. Skip surface-level observations. Assume literary familiarity.
+    """
 }
 #endif
 
@@ -193,7 +188,7 @@ enum AppleIntelligenceHelper {
     @MainActor
     static var isAvailable: Bool {
         #if canImport(FoundationModels)
-        if #available(macOS 26.0, iOS 18.4, *) {
+        if #available(macOS 26.0, iOS 26.0, *) {
             return AppleIntelligenceProvider.isAvailable
         }
         #endif
@@ -204,7 +199,7 @@ enum AppleIntelligenceHelper {
     @MainActor
     static var availabilityStatus: AppleIntelligenceAvailability {
         #if canImport(FoundationModels)
-        if #available(macOS 26.0, iOS 18.4, *) {
+        if #available(macOS 26.0, iOS 26.0, *) {
             return AppleIntelligenceProvider.availabilityStatus
         }
         #endif

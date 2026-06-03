@@ -333,6 +333,10 @@ struct LibraryMainView: View {
                         allTags: allTags
                     )
                 }
+                // Backup/restore uses macOS file panels (NSOpenPanel); the
+                // trigger menu and performRestore() are macOS-only, so this
+                // presenting sheet is gated to match.
+                #if os(macOS)
                 .sheet(isPresented: $showingRestoreStrategyPicker) {
                     RestoreStrategyPickerSheet(
                         selectedStrategy: $selectedMergeStrategy,
@@ -341,6 +345,7 @@ struct LibraryMainView: View {
                         }
                     )
                 }
+                #endif
                 #if os(iOS)
                 .sheet(isPresented: $showingSettings) {
                     iOSSettingsView()

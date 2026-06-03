@@ -1,5 +1,24 @@
 import Foundation
 
+/// Bundle of optional knobs that the manager forwards to every provider
+/// request. Lets us extend behavior (custom prompt, temperature, etc)
+/// without breaking the protocol every time.
+struct AIRequestOptions: Sendable {
+    /// User-customized system prompt that overrides the provider's
+    /// built-in default. `nil` means "use built-in".
+    var systemPrompt: String?
+
+    /// Sampling temperature override. `nil` means provider default.
+    var temperature: Double?
+
+    static let `default` = AIRequestOptions()
+
+    init(systemPrompt: String? = nil, temperature: Double? = nil) {
+        self.systemPrompt = systemPrompt
+        self.temperature = temperature
+    }
+}
+
 /// Protocol for AI provider implementations
 protocol AIProvider: Sendable {
     /// Unique identifier for the provider
@@ -19,42 +38,62 @@ protocol AIProvider: Sendable {
     ///   - selection: The selected text to analyze
     ///   - context: Optional surrounding context
     ///   - conversationHistory: Previous messages in the thread
+    ///   - options: Optional knobs (custom prompt, temperature, etc).
     /// - Returns: Generated response text
     func generateResponse(
         for selection: String,
         context: String?,
-        conversationHistory: [ThreadMessage]
+        conversationHistory: [ThreadMessage],
+        options: AIRequestOptions
     ) async throws -> String
 
-    /// Stream a response for the given text selection (optional)
-    /// - Parameters:
-    ///   - selection: The selected text to analyze
-    ///   - context: Optional surrounding context
-    ///   - conversationHistory: Previous messages in the thread
-    /// - Returns: Async stream of response chunks
+    /// Stream a response for the given text selection. The default
+    /// implementation falls back to `generateResponse` and yields the full
+    /// result as a single chunk; providers that natively support streaming
+    /// override this to emit tokens as they arrive.
     func streamResponse(
         for selection: String,
         context: String?,
-        conversationHistory: [ThreadMessage]
+        conversationHistory: [ThreadMessage],
+        options: AIRequestOptions
     ) async throws -> AsyncThrowingStream<String, Error>
 }
 
-// MARK: - Default Streaming Implementation
+// MARK: - Default implementations
 
 extension AIProvider {
-    /// Default implementation that falls back to non-streaming
-    func streamResponse(
+    /// Convenience overload used by callers that don't need to override
+    /// the system prompt. Calls into the options-aware overload with the
+    /// defaults.
+    func generateResponse(
         for selection: String,
         context: String?,
         conversationHistory: [ThreadMessage]
+    ) async throws -> String {
+        try await generateResponse(
+            for: selection,
+            context: context,
+            conversationHistory: conversationHistory,
+            options: .default
+        )
+    }
+
+    /// Default streaming implementation that just wraps `generateResponse`.
+    /// Providers with native streaming should override this.
+    func streamResponse(
+        for selection: String,
+        context: String?,
+        conversationHistory: [ThreadMessage],
+        options: AIRequestOptions
     ) async throws -> AsyncThrowingStream<String, Error> {
-        return AsyncThrowingStream { continuation in
+        AsyncThrowingStream { continuation in
             Task {
                 do {
                     let response = try await generateResponse(
                         for: selection,
                         context: context,
-                        conversationHistory: conversationHistory
+                        conversationHistory: conversationHistory,
+                        options: options
                     )
                     continuation.yield(response)
                     continuation.finish()
@@ -124,18 +163,22 @@ enum AIProviderError: LocalizedError {
 // MARK: - Provider Factory
 
 actor AIProviderFactory {
-    /// Create a provider instance from configuration
+    /// Create a provider instance from configuration (synchronous - uses sync Keychain access)
+    /// Prefer createProviderAsync() when possible
     static func createProvider(from config: AIProviderConfig) throws -> any AIProvider {
         guard config.isValid else {
             throw AIProviderError.invalidConfiguration
         }
+        
+        // Use synchronous API key access (blocks briefly)
+        let apiKey = config.apiKey
 
         switch config.providerType {
         case .claude:
             return ClaudeProvider(
                 id: config.id,
                 name: config.name,
-                apiKey: config.apiKey,
+                apiKey: apiKey,
                 baseURL: config.baseURL,
                 model: config.model
             )
@@ -144,7 +187,45 @@ actor AIProviderFactory {
             return OpenAIProvider(
                 id: config.id,
                 name: config.name,
-                apiKey: config.apiKey,
+                apiKey: apiKey,
+                baseURL: config.baseURL,
+                model: config.model
+            )
+
+        case .deepseek, .minimax, .kimi:
+            // OpenAI-compatible cloud APIs — reuse the OpenAI client with the
+            // provider's endpoint and default model.
+            return OpenAIProvider(
+                id: config.id,
+                name: config.name,
+                apiKey: apiKey,
+                baseURL: config.baseURL ?? config.providerType.defaultBaseURL,
+                model: config.model ?? config.providerType.defaultModels.first
+            )
+
+        case .appleIntelligence:
+            #if canImport(FoundationModels)
+            if #available(macOS 26.0, iOS 26.0, *) {
+                return AppleIntelligenceProvider(
+                    id: config.id,
+                    name: config.name
+                )
+            }
+            #endif
+            throw AIProviderError.invalidConfiguration
+
+        case .ollama:
+            return OllamaProvider(
+                id: config.id,
+                name: config.name,
+                baseURL: config.baseURL,
+                model: config.model
+            )
+
+        case .lmstudio:
+            return LMStudioProvider(
+                id: config.id,
+                name: config.name,
                 baseURL: config.baseURL,
                 model: config.model
             )
@@ -156,7 +237,100 @@ actor AIProviderFactory {
             return CustomProvider(
                 id: config.id,
                 name: config.name,
-                apiKey: config.apiKey,
+                apiKey: apiKey,
+                baseURL: baseURL,
+                model: config.model
+            )
+        }
+    }
+
+    /// Create a provider instance from configuration (async - preferred)
+    /// Uses proper async Keychain access without blocking
+    static func createProviderAsync(from config: AIProviderConfig) async throws -> any AIProvider {
+        guard await config.isValidAsync() else {
+            throw AIProviderError.invalidConfiguration
+        }
+        
+        // Use async API key access
+        let apiKey = await config.getAPIKey()
+
+        switch config.providerType {
+        case .claude:
+            guard !apiKey.isEmpty else {
+                throw AIProviderError.missingAPIKey
+            }
+            return ClaudeProvider(
+                id: config.id,
+                name: config.name,
+                apiKey: apiKey,
+                baseURL: config.baseURL,
+                model: config.model
+            )
+
+        case .openai:
+            guard !apiKey.isEmpty else {
+                throw AIProviderError.missingAPIKey
+            }
+            return OpenAIProvider(
+                id: config.id,
+                name: config.name,
+                apiKey: apiKey,
+                baseURL: config.baseURL,
+                model: config.model
+            )
+
+        case .deepseek, .minimax, .kimi:
+            guard !apiKey.isEmpty else {
+                throw AIProviderError.missingAPIKey
+            }
+            // OpenAI-compatible cloud APIs — reuse the OpenAI client with the
+            // provider's endpoint and default model.
+            return OpenAIProvider(
+                id: config.id,
+                name: config.name,
+                apiKey: apiKey,
+                baseURL: config.baseURL ?? config.providerType.defaultBaseURL,
+                model: config.model ?? config.providerType.defaultModels.first
+            )
+
+        case .appleIntelligence:
+            #if canImport(FoundationModels)
+            if #available(macOS 26.0, iOS 26.0, *) {
+                return AppleIntelligenceProvider(
+                    id: config.id,
+                    name: config.name
+                )
+            }
+            #endif
+            throw AIProviderError.invalidConfiguration
+
+        case .ollama:
+            return OllamaProvider(
+                id: config.id,
+                name: config.name,
+                baseURL: config.baseURL,
+                model: config.model
+            )
+
+        case .lmstudio:
+            return LMStudioProvider(
+                id: config.id,
+                name: config.name,
+                baseURL: config.baseURL,
+                model: config.model
+            )
+
+        case .custom:
+            guard let baseURL = config.baseURL else {
+                throw AIProviderError.invalidBaseURL
+            }
+            guard !apiKey.isEmpty else {
+                throw AIProviderError.missingAPIKey
+            }
+            return CustomProvider(
+                id: config.id,
+                name: config.name,
+                apiKey: apiKey,
                 baseURL: baseURL,
                 model: config.model
             )

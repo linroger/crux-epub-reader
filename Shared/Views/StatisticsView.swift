@@ -204,7 +204,7 @@ struct StatisticsView: View {
                 DetailRow(label: "Pages Read", value: "\(stats.totalPagesRead)")
             }
             .padding()
-            .background(Color(.controlBackgroundColor))
+            .background(Color.cruxControlBackground)
             .clipShape(RoundedRectangle(cornerRadius: 10))
         }
     }
@@ -336,7 +336,7 @@ struct StatCard: View {
                 .foregroundStyle(.primary)
         }
         .padding()
-        .background(Color(.controlBackgroundColor))
+        .background(Color.cruxControlBackground)
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
@@ -369,7 +369,7 @@ struct StreakCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(Color(.controlBackgroundColor))
+        .background(Color.cruxControlBackground)
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }

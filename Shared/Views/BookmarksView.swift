@@ -229,7 +229,13 @@ struct BookmarkExportSheet: View {
                             Text(format.rawValue).tag(format)
                         }
                     }
+                    // `.radioGroup` is macOS-only; iOS falls back to the
+                    // platform-appropriate inline/menu style.
+                    #if os(macOS)
                     .pickerStyle(.radioGroup)
+                    #else
+                    .pickerStyle(.segmented)
+                    #endif
                 }
 
                 // Format descriptions

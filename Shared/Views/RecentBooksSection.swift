@@ -52,40 +52,15 @@ struct RecentBookCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 // Cover with progress overlay
                 ZStack(alignment: .bottomLeading) {
-                    // Cover image or placeholder
-                    if let coverData = book.coverImageData,
-                       let nsImage = NSImage(data: coverData) {
-                        Image(nsImage: nsImage)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 120, height: 180)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                    } else {
-                        // Fallback placeholder
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.blue.opacity(0.3), Color.purple.opacity(0.3)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 120, height: 180)
-                            .overlay {
-                                VStack(spacing: 8) {
-                                    Image(systemName: "book.closed.fill")
-                                        .font(.system(size: 32))
-                                        .foregroundStyle(.white.opacity(0.8))
-
-                                    Text(book.title)
-                                        .font(.system(size: 10, weight: .medium))
-                                        .foregroundStyle(.white.opacity(0.9))
-                                        .lineLimit(3)
-                                        .multilineTextAlignment(.center)
-                                        .padding(.horizontal, 8)
-                                }
-                            }
-                    }
+                    // Cover image or placeholder — CachedCoverView is
+                    // cross-platform (macOS/iOS) and reuses decoded thumbnails
+                    // from CoverImageCache instead of re-decoding full-size data.
+                    CachedCoverView(
+                        bookId: book.id,
+                        data: book.coverImageData,
+                        size: CGSize(width: 120, height: 180),
+                        cornerRadius: 8
+                    )
 
                     // Info button overlay (show on hover)
                     if isHovering {
