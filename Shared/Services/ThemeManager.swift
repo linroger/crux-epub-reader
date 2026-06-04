@@ -14,7 +14,9 @@ class ThemeManager {
         switch theme {
         case .light, .sepia:
             return .light
-        case .dark, .night:
+        case .dark, .night, .highContrast:
+            // High contrast renders white-on-black, which fits the
+            // dark color scheme so chrome reads correctly.
             return .dark
         case .system:
             return nil // Let system handle it

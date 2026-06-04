@@ -11,6 +11,14 @@ typealias PlatformViewRepresentable = UIViewRepresentable
 
 // MARK: - WebView Representable
 
+/// Context menu action types for text selection
+enum SelectionContextAction {
+    case highlight
+    case annotateWithAI
+    case annotateWithCustomPrompt(String)
+    case copy
+}
+
 struct EPUBWebViewRepresentable: PlatformViewRepresentable {
     let html: String
     let highlights: [Highlight]
@@ -21,16 +29,28 @@ struct EPUBWebViewRepresentable: PlatformViewRepresentable {
     let onMarginNoteAction: ((MarginNoteAction) -> Void)?
     let onSearchResults: ((Int, Int) -> Void)?
     let onContentLoaded: (() -> Void)?
-    let onVisibleSection: ((Int, Double) -> Void)?
+    /// Reports the chapter index, scroll position (0–1), and an optional
+    /// element-level CFI for the top of the viewport. The CFI is `nil`
+    /// when the page is empty or no candidate element is near the top.
+    let onVisibleSection: ((Int, Double, String?) -> Void)?
+    let onContextMenuAction: ((SelectionData, SelectionContextAction) -> Void)?
+    /// Called when the user clicks an internal hyperlink inside the
+    /// rendered EPUB. The path is the link's `lastPathComponent` (so
+    /// callers can match against `Chapter.filePath` regardless of
+    /// whether the link was relative or absolute against the bundle
+    /// base URL). Fragment is the bare anchor, no leading `#`.
+    var onInternalLink: ((_ path: String, _ fragment: String?) -> Void)? = nil
 
     func makeCoordinator() -> WebViewCoordinator {
         WebViewCoordinator(
             onTextSelected: onTextSelected,
             onHighlightTapped: onHighlightTapped,
             onMarginNoteAction: onMarginNoteAction,
+            onContextMenuAction: onContextMenuAction,
             onSearchResults: onSearchResults,
             onContentLoaded: onContentLoaded,
-            onVisibleSection: onVisibleSection
+            onVisibleSection: onVisibleSection,
+            onInternalLink: onInternalLink
         )
     }
 
@@ -61,6 +81,7 @@ struct EPUBWebViewRepresentable: PlatformViewRepresentable {
         config.userContentController.add(context.coordinator, name: "marginNoteAction")
         config.userContentController.add(context.coordinator, name: "searchResults")
         config.userContentController.add(context.coordinator, name: "visibleSection")
+        config.userContentController.add(context.coordinator, name: "contextMenuRequest")
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
@@ -121,7 +142,9 @@ class WebViewCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler
     let onMarginNoteAction: ((MarginNoteAction) -> Void)?
     let onSearchResults: ((Int, Int) -> Void)?
     let onContentLoaded: (() -> Void)?
-    let onVisibleSection: ((Int, Double) -> Void)?
+    let onVisibleSection: ((Int, Double, String?) -> Void)?
+    let onContextMenuAction: ((SelectionData, SelectionContextAction) -> Void)?
+    let onInternalLink: ((String, String?) -> Void)?
 
     var lastLoadedHTML: String = ""
     var lastCustomCSS: String? = nil
@@ -130,21 +153,67 @@ class WebViewCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler
     var highlightsApplied: [UUID] = []
     var lastMarginNotes: [MarginNoteData] = []
     weak var webView: WKWebView?
+    
+    // Store pending selection for context menu
+    var pendingContextSelection: SelectionData?
 
     init(
         onTextSelected: @escaping (SelectionData) -> Void,
         onHighlightTapped: @escaping (UUID) -> Void,
         onMarginNoteAction: ((MarginNoteAction) -> Void)?,
+        onContextMenuAction: ((SelectionData, SelectionContextAction) -> Void)?,
         onSearchResults: ((Int, Int) -> Void)?,
         onContentLoaded: (() -> Void)?,
-        onVisibleSection: ((Int, Double) -> Void)?
+        onVisibleSection: ((Int, Double, String?) -> Void)?,
+        onInternalLink: ((String, String?) -> Void)?
     ) {
         self.onTextSelected = onTextSelected
         self.onHighlightTapped = onHighlightTapped
         self.onMarginNoteAction = onMarginNoteAction
+        self.onContextMenuAction = onContextMenuAction
         self.onSearchResults = onSearchResults
         self.onContentLoaded = onContentLoaded
         self.onVisibleSection = onVisibleSection
+        self.onInternalLink = onInternalLink
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+    ) {
+        // Allow the initial HTML-string load and any same-document
+        // anchor jumps the system handles itself. Only intercept user
+        // link activations.
+        guard navigationAction.navigationType == .linkActivated,
+              let url = navigationAction.request.url else {
+            decisionHandler(.allow)
+            return
+        }
+
+        // External links (https://...) — open in the default browser
+        // instead of replacing the EPUB view.
+        if let scheme = url.scheme?.lowercased(),
+           scheme == "http" || scheme == "https" {
+            decisionHandler(.cancel)
+            #if os(macOS)
+            NSWorkspace.shared.open(url)
+            #else
+            UIApplication.shared.open(url)
+            #endif
+            return
+        }
+
+        // Internal EPUB link. The bundle base URL gives the link a
+        // file:// scheme; we only care about the path's last
+        // component (e.g., "chapter02.xhtml") and the fragment so the
+        // host can match against Chapter.filePath.
+        decisionHandler(.cancel)
+        let path = url.lastPathComponent
+        let fragment = url.fragment
+        DispatchQueue.main.async {
+            self.onInternalLink?(path, fragment)
+        }
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -250,12 +319,143 @@ class WebViewCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler
         } else if message.name == "visibleSection", let body = message.body as? [String: Any] {
             if let chapterIndex = body["chapterIndex"] as? Int {
                 let scrollPosition = body["scrollPosition"] as? Double ?? 0
+                let cfi = body["cfi"] as? String
                 DispatchQueue.main.async {
-                    self.onVisibleSection?(chapterIndex, scrollPosition)
+                    self.onVisibleSection?(chapterIndex, scrollPosition, cfi)
                 }
             }
+        } else if message.name == "contextMenuRequest", let body = message.body as? [String: Any] {
+            #if os(macOS)
+            guard let text = body["text"] as? String, !text.isEmpty,
+                  let startPath = body["startPath"] as? String,
+                  let startOffset = body["startOffset"] as? Int,
+                  let endPath = body["endPath"] as? String,
+                  let endOffset = body["endOffset"] as? Int else { return }
+            
+            let context = body["context"] as? String ?? ""
+            let cfiRange = CFIRange(
+                startPath: startPath,
+                startOffset: startOffset,
+                endPath: endPath,
+                endOffset: endOffset
+            )
+            let selectionData = SelectionData(text: text, cfiRange: cfiRange, context: context)
+            
+            // Store for context menu actions
+            self.pendingContextSelection = selectionData
+            
+            DispatchQueue.main.async {
+                self.showContextMenu(for: selectionData)
+            }
+            #endif
         }
     }
+    
+    #if os(macOS)
+    private func showContextMenu(for selection: SelectionData) {
+        guard let webView = webView else { return }
+        
+        let menu = NSMenu(title: "Selection")
+        
+        // Highlight action
+        let highlightItem = NSMenuItem(title: "Highlight", action: #selector(contextMenuHighlight), keyEquivalent: "")
+        highlightItem.target = self
+        highlightItem.image = NSImage(systemSymbolName: "highlighter", accessibilityDescription: nil)
+        menu.addItem(highlightItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // Annotate with AI action
+        let annotateItem = NSMenuItem(title: "Annotate with AI", action: #selector(contextMenuAnnotate), keyEquivalent: "")
+        annotateItem.target = self
+        annotateItem.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: nil)
+        menu.addItem(annotateItem)
+        
+        // Custom prompt action
+        let customPromptItem = NSMenuItem(title: "Annotate with Custom Prompt...", action: #selector(contextMenuCustomPrompt), keyEquivalent: "")
+        customPromptItem.target = self
+        customPromptItem.image = NSImage(systemSymbolName: "text.bubble", accessibilityDescription: nil)
+        menu.addItem(customPromptItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // Copy action
+        let copyItem = NSMenuItem(title: "Copy", action: #selector(contextMenuCopy), keyEquivalent: "c")
+        copyItem.target = self
+        copyItem.image = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: nil)
+        menu.addItem(copyItem)
+        
+        // Show the menu
+        let mouseLocation = NSEvent.mouseLocation
+        if let window = webView.window {
+            let windowPoint = window.convertPoint(fromScreen: mouseLocation)
+            let viewPoint = webView.convert(windowPoint, from: nil)
+            menu.popUp(positioning: nil, at: viewPoint, in: webView)
+        }
+    }
+    
+    @objc private func contextMenuHighlight() {
+        guard let selection = pendingContextSelection else { return }
+        onContextMenuAction?(selection, .highlight)
+        pendingContextSelection = nil
+    }
+    
+    @objc private func contextMenuAnnotate() {
+        guard let selection = pendingContextSelection else { return }
+        onContextMenuAction?(selection, .annotateWithAI)
+        pendingContextSelection = nil
+    }
+    
+    @objc private func contextMenuCustomPrompt() {
+        guard let selection = pendingContextSelection else { return }
+        
+        // Show custom prompt dialog
+        let alert = NSAlert()
+        alert.messageText = "Custom AI Prompt"
+        alert.informativeText = "Enter a custom prompt to guide the AI annotation:"
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Annotate")
+        alert.addButton(withTitle: "Cancel")
+        
+        let inputField = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 80))
+        inputField.placeholderString = "e.g., Explain the historical context of this passage..."
+        inputField.stringValue = ""
+        inputField.isEditable = true
+        inputField.isBezeled = true
+        inputField.bezelStyle = .roundedBezel
+        
+        // Use a text view for multiline input
+        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 350, height: 100))
+        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 350, height: 100))
+        textView.isEditable = true
+        textView.isRichText = false
+        textView.font = NSFont.systemFont(ofSize: 13)
+        textView.textContainerInset = NSSize(width: 8, height: 8)
+        scrollView.documentView = textView
+        scrollView.hasVerticalScroller = true
+        scrollView.borderType = .bezelBorder
+        
+        alert.accessoryView = scrollView
+        
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            let customPrompt = textView.string.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !customPrompt.isEmpty {
+                onContextMenuAction?(selection, .annotateWithCustomPrompt(customPrompt))
+            }
+        }
+        
+        pendingContextSelection = nil
+    }
+    
+    @objc private func contextMenuCopy() {
+        guard let selection = pendingContextSelection else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(selection.text, forType: .string)
+        onContextMenuAction?(selection, .copy)
+        pendingContextSelection = nil
+    }
+    #endif
 
     func initViewportTracking(chapters: [Chapter], currentFilePath: String) {
         var anchors: [[String: Any]] = []

@@ -1,4 +1,29 @@
-// CruxHighlighter - DOM highlight application and management
+/**
+ * CruxHighlighter — DOM highlight application and position helpers.
+ *
+ * Owns three concerns:
+ *
+ *   1. **Highlights.** `applyHighlights(arr)` consumes a JSON array of
+ *      `{ id, startPath, startOffset, endPath, endOffset }`. The path
+ *      strings are produced by `CruxCFI.getPathToNode` and re-walked
+ *      here via `findNodeByPath`. Each highlight wraps its text in a
+ *      `<span class="crux-highlight">` and posts taps to Swift via
+ *      `webkit.messageHandlers.highlightTapped`.
+ *
+ *   2. **Scrolling.** `setScrollPosition(0..1)` and `scrollToAnchor(id)`
+ *      are used by Swift to restore reading position or jump to a
+ *      chapter fragment. `scrollToCFI(cfiString)` accepts either an
+ *      element path or the combined start/end form (highlight CFI)
+ *      and scrolls the resolved node into view.
+ *
+ *   3. **Reporting.** `getScrollPosition()` returns the current scroll
+ *      percentage so the viewport-tracker can include it in its
+ *      visibleSection update; `getAllHighlightPositions()` is used by
+ *      the margin-notes module to lay out the side rail.
+ *
+ * Path format: `/4/2/1` is a 1-based child index walk from `document.body`,
+ * skipping whitespace-only text nodes. See `CruxCFI` for the writer side.
+ */
 const CruxHighlighter = {
     highlights: new Map(),
 
@@ -211,5 +236,33 @@ const CruxHighlighter = {
         if (scrollHeight <= 0) return;
         const scrollTop = percentage * scrollHeight;
         window.scrollTo({ top: scrollTop, behavior: 'instant' });
+    },
+
+    // Scroll to a CFI string. Accepts either an element path
+    // ("/4/2/1") or the combined start/end form used by highlights
+    // ("/4/2/1:0,/4/2/1:42"). For the combined form we use only the
+    // start path — restoring "to within an element" is precise enough
+    // for both reading-position and highlight-navigation use cases.
+    //
+    // Returns true when scrolling succeeded so Swift can fall back to
+    // scrollPosition if the CFI no longer resolves (e.g., chapter was
+    // reflowed by a CSS change).
+    scrollToCFI: function(cfiString) {
+        if (!cfiString) return false;
+        // Combined form: "<startPath>:<startOffset>,<endPath>:<endOffset>"
+        // Element form:  "<path>"
+        const startSegment = cfiString.split(',')[0] || cfiString;
+        const path = startSegment.split(':')[0] || startSegment;
+        const node = this.findNodeByPath(path);
+        if (!node) return false;
+
+        // For text nodes, scroll the parent element so the text is
+        // visible (text nodes themselves have no scrollIntoView).
+        const target = node.nodeType === Node.TEXT_NODE
+            ? node.parentElement
+            : node;
+        if (!target || typeof target.scrollIntoView !== 'function') return false;
+        target.scrollIntoView({ behavior: 'instant', block: 'start' });
+        return true;
     }
 };

@@ -28,7 +28,8 @@ actor ClaudeProvider: AIProvider {
     func generateResponse(
         for selection: String,
         context: String?,
-        conversationHistory: [ThreadMessage]
+        conversationHistory: [ThreadMessage],
+        options: AIRequestOptions
     ) async throws -> String {
         guard !apiKey.isEmpty else {
             throw AIProviderError.missingAPIKey
@@ -37,10 +38,11 @@ actor ClaudeProvider: AIProvider {
         let prompt = buildPrompt(
             selectedText: selection,
             context: context,
-            conversationHistory: conversationHistory
+            conversationHistory: conversationHistory,
+            customSystemPrompt: options.systemPrompt
         )
 
-        let request = try buildRequest(prompt: prompt, conversationHistory: conversationHistory)
+        let request = try buildRequest(prompt: prompt, conversationHistory: conversationHistory, temperature: options.temperature)
 
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
@@ -67,18 +69,19 @@ actor ClaudeProvider: AIProvider {
     private func buildPrompt(
         selectedText: String,
         context: String?,
-        conversationHistory: [ThreadMessage]
+        conversationHistory: [ThreadMessage],
+        customSystemPrompt: String?
     ) -> String {
         // If this is a follow-up in a conversation, return just the new user message
         if !conversationHistory.isEmpty {
             return selectedText
         }
 
-        // Initial margin note prompt
-        var prompt = """
-        You are an expert analytical reader providing margin notes. Your annotations should be detailed, illuminating, insightful, incisive, and enlightening—revealing what a careful reader might miss on first pass.
-
-        """
+        // Use the user's custom system prompt when supplied, otherwise the
+        // built-in scholarly default.
+        var prompt = (customSystemPrompt?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                      ? customSystemPrompt!
+                      : Self.builtInSystemPrompt) + "\n\n"
 
         if let context = context, !context.isEmpty {
             prompt += """
@@ -93,43 +96,36 @@ actor ClaudeProvider: AIProvider {
         prompt += """
         Highlighted passage:
         "\(selectedText)"
-
-        Provide a substantive margin note (2-5 sentences) that offers genuine insight. Engage deeply with the text at the level it demands:
-
-        **For any text type, consider:**
-        - What's the core claim, mechanism, or observation here? What makes it significant?
-        - Unstated assumptions, implications, or tensions
-        - How this connects to broader arguments, frameworks, or contexts
-        - What's surprising, counterintuitive, or easily misread
-        - Alternative interpretations or framings
-        - Methodological approaches or epistemic questions
-
-        **Genre-specific depth:**
-        - **Literary**: rhetorical devices, symbolic layers, structural function, allusions, tonal shifts
-        - **Academic/Scientific**: theoretical frameworks, methodological choices, empirical claims vs. interpretation, disciplinary context
-        - **Philosophy**: conceptual distinctions, argumentative moves, historical lineage, overlooked objections
-        - **Technical**: design decisions, edge cases, performance implications, architectural patterns
-        - **Historical**: historiographical perspective, source reliability, contextual significance
-        - **Journalistic**: framing choices, missing perspectives, evidential basis
-
-        **Style guidance:**
-        - Be precise and substantive—avoid generic observations
-        - Assume an intelligent reader; don't explain the obvious
-        - Sometimes the best note is a connection: "Contrast with [X]" or "Assumes [Y framework]"
-        - For dense passages, clarify what's actually being said
-        - For deceptively simple passages, reveal the complexity
-
-        Think: what would an expert in this field notice and mark for deeper consideration?
         """
 
         return prompt
     }
 
+    private static let builtInSystemPrompt = """
+    You are an expert analytical reader providing margin notes. Your annotations should be detailed, illuminating, insightful, incisive, and enlightening—revealing what a careful reader might miss on first pass.
+
+    Provide a substantive margin note (2-5 sentences) that offers genuine insight. Engage deeply with the text at the level it demands:
+
+    **For any text type, consider:**
+    - What's the core claim, mechanism, or observation here? What makes it significant?
+    - Unstated assumptions, implications, or tensions
+    - How this connects to broader arguments, frameworks, or contexts
+    - What's surprising, counterintuitive, or easily misread
+    - Alternative interpretations or framings
+
+    **Style guidance:**
+    - Be precise and substantive—avoid generic observations
+    - Assume an intelligent reader; don't explain the obvious
+    - For dense passages, clarify what's actually being said
+    - For deceptively simple passages, reveal the complexity
+    """
+
     // MARK: - Request Building
 
     private func buildRequest(
         prompt: String,
-        conversationHistory: [ThreadMessage]
+        conversationHistory: [ThreadMessage],
+        temperature: Double? = nil
     ) throws -> URLRequest {
         guard let url = URL(string: baseURL) else {
             throw AIProviderError.invalidBaseURL
@@ -159,11 +155,14 @@ actor ClaudeProvider: AIProvider {
             "content": prompt
         ])
 
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "model": model,
             "max_tokens": 1024,
             "messages": messages
         ]
+        if let temperature {
+            body["temperature"] = temperature
+        }
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         return request
@@ -180,24 +179,83 @@ actor ClaudeProvider: AIProvider {
         }
         return text
     }
-}
 
-// MARK: - Backward Compatibility with ClaudeService
+    // MARK: - Native streaming
 
-extension ClaudeProvider {
-    /// Create a provider from legacy ClaudeService settings
-    static func createFromLegacySettings() -> ClaudeProvider? {
-        let apiKey = ProcessInfo.processInfo.environment["ANTHROPIC_API_KEY"]
-            ?? UserDefaults.standard.string(forKey: "anthropicAPIKey")
-
-        guard let apiKey = apiKey, !apiKey.isEmpty else {
-            return nil
+    /// Anthropic streams via SSE with `content_block_delta` events whose
+    /// `delta.text` field contains the next slice of tokens.
+    func streamResponse(
+        for selection: String,
+        context: String?,
+        conversationHistory: [ThreadMessage],
+        options: AIRequestOptions
+    ) async throws -> AsyncThrowingStream<String, Error> {
+        guard !apiKey.isEmpty else {
+            throw AIProviderError.missingAPIKey
+        }
+        let prompt = buildPrompt(
+            selectedText: selection,
+            context: context,
+            conversationHistory: conversationHistory,
+            customSystemPrompt: options.systemPrompt
+        )
+        var request = try buildRequest(prompt: prompt, conversationHistory: conversationHistory, temperature: options.temperature)
+        if let oldBody = request.httpBody,
+           var json = try? JSONSerialization.jsonObject(with: oldBody) as? [String: Any] {
+            json["stream"] = true
+            request.httpBody = try JSONSerialization.data(withJSONObject: json)
         }
 
-        return ClaudeProvider(
-            id: UUID(),
-            name: "Claude (Migrated)",
-            apiKey: apiKey
-        )
+        return AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    let (chunkStream, response) = try await URLSession.shared.dataChunks(for: request)
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        throw AIProviderError.invalidResponse
+                    }
+                    if httpResponse.statusCode != 200 {
+                        var collected = Data()
+                        for try await chunk in chunkStream { collected.append(chunk) }
+                        let message = String(data: collected, encoding: .utf8) ?? "Unknown error"
+                        throw AIProviderError.apiError(statusCode: httpResponse.statusCode, message: message)
+                    }
+
+                    let payloads = SSEParser.payloadStream(from: chunkStream)
+                    for try await payload in payloads {
+                        guard let data = payload.data(using: .utf8),
+                              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                            continue
+                        }
+                        let type = json["type"] as? String
+                        switch type {
+                        case "content_block_delta":
+                            if let delta = json["delta"] as? [String: Any],
+                               let text = delta["text"] as? String, !text.isEmpty {
+                                continuation.yield(text)
+                            }
+                        case "message_stop", "error":
+                            // message_stop terminates; explicit error events
+                            // would carry detail in `error.message`.
+                            if let err = json["error"] as? [String: Any],
+                               let message = err["message"] as? String {
+                                continuation.finish(throwing: AIProviderError.apiError(statusCode: 0, message: message))
+                                return
+                            }
+                        default:
+                            continue
+                        }
+                    }
+                    continuation.finish()
+                } catch let error as AIProviderError {
+                    continuation.finish(throwing: error)
+                } catch {
+                    continuation.finish(throwing: AIProviderError.networkError(error))
+                }
+            }
+        }
     }
 }
+
+// The legacy `ClaudeService` actor has been removed; migration of any
+// pre-existing API key in UserDefaults / env happens once via
+// `AIProviderManager.migrateFromLegacySettings()`.

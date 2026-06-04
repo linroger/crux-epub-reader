@@ -68,6 +68,35 @@ final class AppSettings {
     /// Currently active AI provider ID
     var activeProviderId: UUID?
 
+    // MARK: - Onboarding
+
+    /// Whether the user has dismissed the first-launch welcome sheet.
+    /// Defaults to `false` for fresh installs, but existing installs will
+    /// have this default-initialized to `false` and get the sheet once.
+    var hasSeenOnboarding: Bool = false
+
+    // MARK: - AI Prompt Customization
+
+    /// Identifier of the currently selected prompt preset (see
+    /// `AIPromptPreset`). When empty, the active prompt is the bundled
+    /// "Scholarly" default. The user can switch presets or pick "Custom"
+    /// and provide their own text in `customSystemPrompt`.
+    var activePromptPresetId: String = AIPromptPreset.scholarly.id
+
+    /// User-edited system prompt. Only consulted when `activePromptPresetId`
+    /// is `AIPromptPreset.custom.id`. Stored even when not active so users
+    /// can toggle back without losing their text.
+    var customSystemPrompt: String = ""
+
+    // MARK: - Accessibility
+
+    /// Whether to follow the system's "Reduce Motion" preference. Defaults
+    /// to true so we honor accessibility settings unless the user opts in
+    /// to animations. The reader/onboarding consults
+    /// `\.accessibilityReduceMotion` directly; this flag exists for users
+    /// who want to *override* the system default.
+    var respectsReduceMotion: Bool = true
+
     // MARK: - Initialization
 
     init(
@@ -86,7 +115,8 @@ final class AppSettings {
         libraryViewMode: String = "list",
         librarySortOrder: String = "lastRead",
         librarySortAscending: Bool = false,
-        activeProviderId: UUID? = nil
+        activeProviderId: UUID? = nil,
+        hasSeenOnboarding: Bool = false
     ) {
         self.theme = theme
         self.autoSaveInterval = autoSaveInterval
@@ -104,6 +134,7 @@ final class AppSettings {
         self.librarySortOrder = librarySortOrder
         self.librarySortAscending = librarySortAscending
         self.activeProviderId = activeProviderId
+        self.hasSeenOnboarding = hasSeenOnboarding
     }
 
     // MARK: - Defaults
@@ -162,6 +193,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
     case system = "system"
     case sepia = "sepia"
     case night = "night"
+    case highContrast = "highContrast"
 
     var id: String { rawValue }
 
@@ -172,6 +204,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
         case .system: return "System"
         case .sepia: return "Sepia"
         case .night: return "Night Mode"
+        case .highContrast: return "High Contrast"
         }
     }
 
@@ -181,6 +214,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
         case .dark: return "#1E1E1E"
         case .sepia: return "#F4ECD8"
         case .night: return "#0A0A0A"
+        case .highContrast: return "#000000"
         }
     }
 
@@ -190,6 +224,9 @@ enum AppTheme: String, CaseIterable, Identifiable {
         case .dark: return "#E0E0E0"
         case .sepia: return "#5C4B37"
         case .night: return "#CCCCCC"
+        // Pure white on pure black exceeds WCAG AAA (21:1) — used by
+        // readers who need maximum contrast (low vision, glare, etc).
+        case .highContrast: return "#FFFFFF"
         }
     }
 }

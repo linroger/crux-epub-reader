@@ -31,3 +31,10 @@ fastlane/test_output
 
 # Code Injection
 iOSInjectionProject/
+
+# Build artifacts & ephemeral local data (not source)
+Crux.app/
+*.app/
+Screenshots/logs/
+.claude/data/
+logs/

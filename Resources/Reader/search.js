@@ -1,4 +1,22 @@
-// CruxSearch - In-chapter text search with live highlighting
+/**
+ * CruxSearch — In-chapter text search with highlight rendering.
+ *
+ * Lifecycle:
+ *   - `search(query)` performs a case-insensitive substring match
+ *     across all visible text in the chapter, wraps each hit in a
+ *     `<span class="crux-search-match">`, and scrolls to the first hit.
+ *   - `nextMatch()` / `previousMatch()` cycle through hits, adjusting
+ *     the `crux-search-match-current` class.
+ *   - `clearHighlights()` unwraps every match span — called when the
+ *     user closes the search bar or switches chapters.
+ *
+ * Reports back to Swift via `webkit.messageHandlers.searchResults`:
+ *   { matchCount: number, currentIndex: number }
+ *
+ * Book-wide search lives in Swift (`BookSearchIndex`); this module only
+ * handles the highlighting inside the chapter currently rendered in
+ * the WebView.
+ */
 const CruxSearch = {
     searchHighlights: [],
     currentIndex: -1,

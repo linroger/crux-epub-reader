@@ -28,7 +28,8 @@ actor OpenAIProvider: AIProvider {
     func generateResponse(
         for selection: String,
         context: String?,
-        conversationHistory: [ThreadMessage]
+        conversationHistory: [ThreadMessage],
+        options: AIRequestOptions
     ) async throws -> String {
         guard !apiKey.isEmpty else {
             throw AIProviderError.missingAPIKey
@@ -37,7 +38,8 @@ actor OpenAIProvider: AIProvider {
         let request = try buildRequest(
             selectedText: selection,
             context: context,
-            conversationHistory: conversationHistory
+            conversationHistory: conversationHistory,
+            options: options
         )
 
         do {
@@ -65,7 +67,8 @@ actor OpenAIProvider: AIProvider {
     private func buildRequest(
         selectedText: String,
         context: String?,
-        conversationHistory: [ThreadMessage]
+        conversationHistory: [ThreadMessage],
+        options: AIRequestOptions
     ) throws -> URLRequest {
         guard let url = URL(string: baseURL) else {
             throw AIProviderError.invalidBaseURL
@@ -77,16 +80,16 @@ actor OpenAIProvider: AIProvider {
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 30
 
-        // Build messages array
-        var messages: [[String: Any]] = []
+        // System message for margin notes — honors user override
+        let systemPrompt = options.systemPrompt?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            ? options.systemPrompt!
+            : buildSystemPrompt()
 
-        // System message for margin notes
-        messages.append([
+        var messages: [[String: Any]] = [[
             "role": "system",
-            "content": buildSystemPrompt()
-        ])
+            "content": systemPrompt
+        ]]
 
-        // Add conversation history
         for message in conversationHistory {
             messages.append([
                 "role": message.role.rawValue,
@@ -94,18 +97,16 @@ actor OpenAIProvider: AIProvider {
             ])
         }
 
-        // Add new user message with context
-        let userMessage = buildUserMessage(selectedText: selectedText, context: context)
         messages.append([
             "role": "user",
-            "content": userMessage
+            "content": buildUserMessage(selectedText: selectedText, context: context)
         ])
 
         let body: [String: Any] = [
             "model": model,
             "messages": messages,
             "max_tokens": 1024,
-            "temperature": 0.7
+            "temperature": options.temperature ?? 0.7
         ]
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -188,5 +189,71 @@ actor OpenAIProvider: AIProvider {
             return nil
         }
         return message
+    }
+
+    // MARK: - Native streaming
+
+    /// Native SSE streaming via `/v1/chat/completions?stream=true`. Yields
+    /// delta tokens as the server produces them so the UI can render
+    /// incrementally instead of waiting for the full response.
+    func streamResponse(
+        for selection: String,
+        context: String?,
+        conversationHistory: [ThreadMessage],
+        options: AIRequestOptions
+    ) async throws -> AsyncThrowingStream<String, Error> {
+        guard !apiKey.isEmpty else {
+            throw AIProviderError.missingAPIKey
+        }
+        var request = try buildRequest(
+            selectedText: selection,
+            context: context,
+            conversationHistory: conversationHistory,
+            options: options
+        )
+        // Flip the body to streaming mode.
+        if let oldBody = request.httpBody,
+           var json = try? JSONSerialization.jsonObject(with: oldBody) as? [String: Any] {
+            json["stream"] = true
+            request.httpBody = try JSONSerialization.data(withJSONObject: json)
+        }
+
+        return AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    let (chunkStream, response) = try await URLSession.shared.dataChunks(for: request)
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        throw AIProviderError.invalidResponse
+                    }
+                    if httpResponse.statusCode != 200 {
+                        // Drain the byte stream so we get a proper error
+                        // message rather than a generic non-200.
+                        var collected = Data()
+                        for try await chunk in chunkStream { collected.append(chunk) }
+                        let message = parseErrorMessage(collected) ?? "Unknown error"
+                        throw AIProviderError.apiError(statusCode: httpResponse.statusCode, message: message)
+                    }
+
+                    let payloads = SSEParser.payloadStream(from: chunkStream)
+                    for try await payload in payloads {
+                        guard let data = payload.data(using: .utf8),
+                              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                              let choices = json["choices"] as? [[String: Any]],
+                              let first = choices.first,
+                              let delta = first["delta"] as? [String: Any] else {
+                            continue
+                        }
+                        if let content = delta["content"] as? String, !content.isEmpty {
+                            continuation.yield(content)
+                        }
+                    }
+                    continuation.finish()
+                } catch let error as AIProviderError {
+                    continuation.finish(throwing: error)
+                } catch {
+                    continuation.finish(throwing: AIProviderError.networkError(error))
+                }
+            }
+        }
     }
 }

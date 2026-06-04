@@ -1,4 +1,32 @@
-// CruxCFI - EPUB CFI fragment identifier utilities
+/**
+ * CruxCFI — EPUB Canonical Fragment Identifier utilities.
+ *
+ * "CFI" here is a simplified, Crux-internal variant of the EPUB CFI
+ * standard. We only need enough to round-trip text selections between
+ * the WebView (where the user picks them) and Swift storage (where they
+ * are persisted as `Highlight.cfiRange`).
+ *
+ * Format:
+ *   - **Element path:** `/4/2/1` — 1-based child indices starting from
+ *     `document.body`, skipping whitespace-only text nodes so the path
+ *     is stable across pretty-printing or insignificant DOM noise.
+ *   - **Combined range:** `<startPath>:<startOffset>,<endPath>:<endOffset>`
+ *     — used by selections that span text nodes.
+ *
+ * `getSelectionCFI()` is the canonical writer. The reader counterparts
+ * live in `highlighter.js` (`findNodeByPath`, `scrollToCFI`).
+ *
+ * Message contract (posted to Swift via
+ * `webkit.messageHandlers.textSelection`):
+ *   {
+ *     text:        string,   // the selected substring
+ *     startPath:   string,   // element path to the start text node
+ *     startOffset: number,
+ *     endPath:     string,
+ *     endOffset:   number,
+ *     context:     string    // ±500 chars of surrounding text
+ *   }
+ */
 const CruxCFI = {
     getPathToNode: function(node) {
         const path = [];

@@ -256,7 +256,7 @@ final class ExportService {
             try data.write(to: url, atomically: true, encoding: .utf8)
             return url
         } catch {
-            print("Failed to save file: \(error)")
+            AppLog.errors.error("Failed to save export file: \(error.localizedDescription, privacy: .public)")
             return nil
         }
     }

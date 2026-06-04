@@ -1,4 +1,5 @@
 import Foundation
+import UniformTypeIdentifiers
 #if os(macOS)
 import AppKit
 #else
@@ -10,6 +11,10 @@ enum ExportFormat {
     case json
     case html
     case plainText
+    /// Crux's own self-describing annotation bundle (carries book
+    /// metadata + version stamp so a recipient can re-import into
+    /// their library). See `CruxNotesBundle`.
+    case cruxNotes
 
     var fileExtension: String {
         switch self {
@@ -17,6 +22,7 @@ enum ExportFormat {
         case .json: return "json"
         case .html: return "html"
         case .plainText: return "txt"
+        case .cruxNotes: return "cruxnotes"
         }
     }
 
@@ -26,6 +32,7 @@ enum ExportFormat {
         case .json: return "JSON"
         case .html: return "HTML"
         case .plainText: return "Plain Text"
+        case .cruxNotes: return "Crux Notes Bundle"
         }
     }
 }
@@ -36,13 +43,16 @@ actor AnnotationExportService {
 
     private init() {}
 
-    /// Export annotations for a book to a string in the specified format
+    /// Export annotations for a book to a string in the specified format.
+    /// Async because the `.cruxNotes` branch hops to the `CruxNotesIO`
+    /// actor to do the bundle encode; the other branches finish
+    /// synchronously and the cost is a single hop on the actor switch.
     func exportAnnotations(
         bookTitle: String,
         bookAuthor: String?,
         annotations: BookAnnotations,
         format: ExportFormat
-    ) -> String {
+    ) async -> String {
         switch format {
         case .markdown:
             return exportAsMarkdown(bookTitle: bookTitle, bookAuthor: bookAuthor, annotations: annotations)
@@ -52,6 +62,32 @@ actor AnnotationExportService {
             return exportAsHTML(bookTitle: bookTitle, bookAuthor: bookAuthor, annotations: annotations)
         case .plainText:
             return exportAsPlainText(bookTitle: bookTitle, bookAuthor: bookAuthor, annotations: annotations)
+        case .cruxNotes:
+            return await exportAsCruxNotes(bookTitle: bookTitle, bookAuthor: bookAuthor, annotations: annotations)
+        }
+    }
+
+    /// Build a `CruxNotesBundle` and serialize it to a pretty-printed
+    /// JSON string. Failures fall back to an empty object so the
+    /// caller can show an export error rather than crashing on a
+    /// bad encoder configuration that should never happen in practice.
+    private func exportAsCruxNotes(
+        bookTitle: String,
+        bookAuthor: String?,
+        annotations: BookAnnotations
+    ) async -> String {
+        let bundle = CruxNotesBundle(
+            bookId: annotations.bookId,
+            bookTitle: bookTitle,
+            bookAuthor: bookAuthor,
+            annotations: annotations
+        )
+        do {
+            let data = try await CruxNotesIO.shared.encode(bundle)
+            return String(data: data, encoding: .utf8) ?? "{}"
+        } catch {
+            AppLog.errors.error("Failed to encode .cruxnotes bundle: \(error.localizedDescription, privacy: .public)")
+            return "{}"
         }
     }
 
@@ -76,7 +112,9 @@ actor AnnotationExportService {
         #if os(macOS)
         let panel = NSSavePanel()
         panel.nameFieldStringValue = filename
-        panel.allowedContentTypes = [.init(filenameExtension: format.fileExtension)!]
+        if let contentType = UTType(filenameExtension: format.fileExtension) {
+            panel.allowedContentTypes = [contentType]
+        }
         panel.canCreateDirectories = true
 
         let response = panel.runModal()
@@ -166,13 +204,18 @@ actor AnnotationExportService {
     }
 
     private func exportAsHTML(bookTitle: String, bookAuthor: String?, annotations: BookAnnotations) -> String {
+        // All user-supplied strings are escaped at every interpolation point
+        // because the exported file may be opened in a browser where script
+        // or markup injection would otherwise execute.
+        let safeTitle = bookTitle.htmlEscaped
         var html = """
         <!DOCTYPE html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>\(bookTitle) - Annotations</title>
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:;">
+            <title>\(safeTitle) - Annotations</title>
             <style>
                 body {
                     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -220,23 +263,23 @@ actor AnnotationExportService {
             </style>
         </head>
         <body>
-            <h1>\(bookTitle)</h1>
+            <h1>\(safeTitle)</h1>
         """
 
         if let author = bookAuthor {
-            html += "<p class=\"metadata\"><strong>Author:</strong> \(author)</p>"
+            html += "<p class=\"metadata\"><strong>Author:</strong> \(author.htmlEscaped)</p>"
         }
 
         html += "<p class=\"metadata\"><strong>Exported:</strong> \(Date().formatted(date: .long, time: .shortened))</p>"
 
         // Highlights
         if !annotations.highlights.isEmpty {
-            html += "<h2>Highlights & Notes</h2>"
+            html += "<h2>Highlights &amp; Notes</h2>"
 
             for (index, highlight) in annotations.highlights.enumerated() {
                 html += """
                 <div class="highlight">
-                    <h3>\(index + 1). \(highlight.chapterId)</h3>
+                    <h3>\(index + 1). \(highlight.chapterId.htmlEscaped)</h3>
                     <div class="quote">\(highlight.selectedText.htmlEscaped)</div>
                 """
 

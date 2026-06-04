@@ -28,7 +28,8 @@ actor CustomProvider: AIProvider {
     func generateResponse(
         for selection: String,
         context: String?,
-        conversationHistory: [ThreadMessage]
+        conversationHistory: [ThreadMessage],
+        options: AIRequestOptions
     ) async throws -> String {
         guard !apiKey.isEmpty else {
             throw AIProviderError.missingAPIKey
@@ -37,7 +38,8 @@ actor CustomProvider: AIProvider {
         let request = try buildRequest(
             selectedText: selection,
             context: context,
-            conversationHistory: conversationHistory
+            conversationHistory: conversationHistory,
+            options: options
         )
 
         do {
@@ -85,7 +87,8 @@ actor CustomProvider: AIProvider {
     private func buildRequest(
         selectedText: String,
         context: String?,
-        conversationHistory: [ThreadMessage]
+        conversationHistory: [ThreadMessage],
+        options: AIRequestOptions
     ) throws -> URLRequest {
         // Build full endpoint URL
         let endpoint = buildEndpointURL()
@@ -107,14 +110,14 @@ actor CustomProvider: AIProvider {
 
         request.timeoutInterval = 300 // 5 minutes for complex AI processing
 
-        // Build messages array
-        var messages: [[String: Any]] = []
+        let systemPrompt = options.systemPrompt?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            ? options.systemPrompt!
+            : buildSystemPrompt()
 
-        // System message for margin notes (OpenAI format)
-        messages.append([
+        var messages: [[String: Any]] = [[
             "role": "system",
-            "content": buildSystemPrompt()
-        ])
+            "content": systemPrompt
+        ]]
 
         // Add conversation history
         for message in conversationHistory {
@@ -135,7 +138,7 @@ actor CustomProvider: AIProvider {
         var body: [String: Any] = [
             "messages": messages,
             "max_tokens": 1024,
-            "temperature": 0.7
+            "temperature": options.temperature ?? 0.7
         ]
 
         // Add model if specified

@@ -139,13 +139,27 @@ final class NotesViewModel {
     private func applyFiltersAndSort() {
         var highlights = allHighlights
 
-        // Apply search filter
+        // Apply search filter — covers highlight text, the user's own
+        // note, book metadata, and the contents of every AI thread
+        // message. The last one means a thread that discussed "kenosis"
+        // surfaces even when that word doesn't appear in the original
+        // passage.
         if !searchText.isEmpty {
+            let needle = searchText
             highlights = highlights.filter { item in
-                item.highlight.selectedText.localizedCaseInsensitiveContains(searchText) ||
-                item.highlight.annotation?.localizedCaseInsensitiveContains(searchText) == true ||
-                item.bookTitle.localizedCaseInsensitiveContains(searchText) ||
-                item.bookAuthor.localizedCaseInsensitiveContains(searchText)
+                if item.highlight.selectedText.localizedCaseInsensitiveContains(needle) { return true }
+                if item.highlight.annotation?.localizedCaseInsensitiveContains(needle) == true { return true }
+                if item.bookTitle.localizedCaseInsensitiveContains(needle) { return true }
+                if item.bookAuthor.localizedCaseInsensitiveContains(needle) { return true }
+                // Search inside AI thread messages too.
+                for thread in item.highlight.threads {
+                    for message in thread.messages {
+                        if message.content.localizedCaseInsensitiveContains(needle) {
+                            return true
+                        }
+                    }
+                }
+                return false
             }
         }
 

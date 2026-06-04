@@ -65,7 +65,7 @@ struct AnnotationExportView: View {
 
                 Section {
                     Picker("Format", selection: $selectedFormat) {
-                        ForEach([ExportFormat.markdown, .html, .plainText, .json], id: \.fileExtension) { format in
+                        ForEach([ExportFormat.markdown, .html, .plainText, .json, .cruxNotes], id: \.fileExtension) { format in
                             HStack {
                                 Text(format.displayName)
                                 Spacer()
@@ -129,6 +129,8 @@ struct AnnotationExportView: View {
             return "Simple text file that works everywhere. No formatting, just your highlights and notes."
         case .json:
             return "Structured data format. Useful for developers or importing into other apps."
+        case .cruxNotes:
+            return "Self-contained Crux bundle (.cruxnotes) with book metadata. Re-importable into any Crux library on macOS/iOS."
         }
     }
 
