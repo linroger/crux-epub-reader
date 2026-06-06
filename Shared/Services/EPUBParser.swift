@@ -172,7 +172,98 @@ actor EPUBParser {
         // Last resort: lossy conversion
         return String(data: data, encoding: .utf8) ?? String(decoding: data, as: UTF8.self)
     }
-    
+
+    // MARK: - Chapter loading & image inlining
+
+    /// Reads a chapter's HTML and inlines its referenced images as `data:`
+    /// URIs.
+    ///
+    /// The EPUB is unzipped into a temp directory that's deleted the moment
+    /// `parse()` returns, and the reader WebView loads chapter HTML with its
+    /// base URL pointed at the *app bundle* (so the bundled reader CSS/JS
+    /// resolve). That combination means relative `<img src="…">` paths in the
+    /// EPUB can never load. Inlining the image bytes here — while the extracted
+    /// files still exist — makes each chapter self-contained, so figures,
+    /// diagrams, and full-page SVG image wrappers render regardless of the
+    /// WebView's base URL.
+    private func loadChapterHTML(at url: URL) -> String {
+        guard let data = try? Data(contentsOf: url),
+              let html = readString(from: data) else { return "" }
+        return inlineImages(in: html, chapterDirectory: url.deletingLastPathComponent())
+    }
+
+    /// Rewrites `src`/`href`/`xlink:href` on `<img>` and `<image>` elements to
+    /// base64 `data:` URIs, resolving each reference against the chapter file's
+    /// own directory. Remote (`http(s)://`) and already-inlined (`data:`)
+    /// references are left untouched.
+    private func inlineImages(in html: String, chapterDirectory: URL) -> String {
+        // Require whitespace before the attribute name so we don't match a
+        // `data-src`/`data-href` and inline the wrong value.
+        let pattern = #"(<(?:img|image)\b[^>]*?\s(?:xlink:href|href|src)\s*=\s*)(["'])(.*?)\2"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive, .dotMatchesLineSeparators]) else {
+            return html
+        }
+
+        let matches = regex.matches(in: html, range: NSRange(html.startIndex..., in: html))
+        guard !matches.isEmpty else { return html }
+
+        var output = ""
+        var lastEnd = html.startIndex
+        for match in matches {
+            guard let whole = Range(match.range, in: html),
+                  let prefixRange = Range(match.range(at: 1), in: html),
+                  let quoteRange = Range(match.range(at: 2), in: html),
+                  let pathRange = Range(match.range(at: 3), in: html) else { continue }
+
+            output += html[lastEnd..<whole.lowerBound]
+
+            let path = String(html[pathRange])
+            if let dataURI = dataURI(forResourcePath: path, relativeTo: chapterDirectory) {
+                output += html[prefixRange] + html[quoteRange] + dataURI + html[quoteRange]
+            } else {
+                output += html[whole]
+            }
+            lastEnd = whole.upperBound
+        }
+        output += html[lastEnd...]
+        return output
+    }
+
+    /// Builds a `data:` URI for an image referenced relative to `baseDir`, or
+    /// `nil` if the reference is remote/already-inlined or the file is missing.
+    private func dataURI(forResourcePath rawPath: String, relativeTo baseDir: URL) -> String? {
+        let lower = rawPath.lowercased()
+        guard !lower.hasPrefix("data:"),
+              !lower.hasPrefix("http://"),
+              !lower.hasPrefix("https://"),
+              !rawPath.isEmpty else { return nil }
+
+        // Drop any fragment/query and percent-decode before resolving.
+        let pathOnly = rawPath
+            .components(separatedBy: "#").first?
+            .components(separatedBy: "?").first ?? rawPath
+        let decoded = pathOnly.removingPercentEncoding ?? pathOnly
+        let fileURL = URL(fileURLWithPath: decoded, relativeTo: baseDir).standardizedFileURL
+
+        guard let data = try? Data(contentsOf: fileURL), !data.isEmpty else { return nil }
+        let mime = Self.mimeType(forExtension: fileURL.pathExtension.lowercased())
+        return "data:\(mime);base64,\(data.base64EncodedString())"
+    }
+
+    private static func mimeType(forExtension ext: String) -> String {
+        switch ext {
+        case "jpg", "jpeg": return "image/jpeg"
+        case "png": return "image/png"
+        case "gif": return "image/gif"
+        case "svg": return "image/svg+xml"
+        case "webp": return "image/webp"
+        case "bmp": return "image/bmp"
+        case "tif", "tiff": return "image/tiff"
+        case "avif": return "image/avif"
+        default: return "application/octet-stream"
+        }
+    }
+
     /// Attempts to detect encoding from BOM or XML declaration
     private func detectEncoding(from data: Data) -> String.Encoding? {
         // Check for BOM
@@ -582,8 +673,7 @@ actor EPUBParser {
         htmlFiles.sort { $0.lastPathComponent < $1.lastPathComponent }
         
         for (index, htmlURL) in htmlFiles.enumerated() {
-            let contentData = try? Data(contentsOf: htmlURL)
-            let contentString = contentData.flatMap { readString(from: $0) } ?? ""
+            let contentString = loadChapterHTML(at: htmlURL)
             let title = extractChapterTitle(from: contentString) ?? htmlURL.deletingPathExtension().lastPathComponent
             
             // Get relative path from baseURL
@@ -778,7 +868,7 @@ actor EPUBParser {
                 if !title.isEmpty {
                     let filePath = href.components(separatedBy: "#").first ?? href
                     let contentURL = baseURL.appendingPathComponent(filePath.removingPercentEncoding ?? filePath)
-                    let contentString = (try? String(contentsOf: contentURL, encoding: .utf8)) ?? ""
+                    let contentString = loadChapterHTML(at: contentURL)
 
                     chapters.append(Chapter(
                         id: "nav-\(order)",
@@ -976,7 +1066,7 @@ actor EPUBParser {
                     let idref = String(content[idRange])
                     if let href = manifest[idref] {
                         let chapterURL = baseURL.appendingPathComponent(href)
-                        let chapterContent = (try? String(contentsOf: chapterURL, encoding: .utf8)) ?? ""
+                        let chapterContent = loadChapterHTML(at: chapterURL)
                         let title = extractChapterTitle(from: chapterContent) ?? "Chapter \(index + 1)"
 
                         chapters.append(Chapter(
