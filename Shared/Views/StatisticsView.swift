@@ -59,7 +59,9 @@ struct StatisticsView: View {
                 loadStatistics()
             }
         }
+        #if os(macOS)
         .frame(width: 700, height: 600)
+        #endif
     }
 
     // MARK: - Overview Section

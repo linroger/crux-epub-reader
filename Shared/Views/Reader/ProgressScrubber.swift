@@ -25,6 +25,23 @@ struct ProgressScrubber: View {
         return min(max(raw, 0), chapters.count - 1)
     }
 
+    /// Visible thickness of the painted track — intentionally thin so the
+    /// scrubber stays unobtrusive. Grows slightly while dragging.
+    private var barThickness: CGFloat { isPressed ? 8 : 6 }
+
+    /// Height of the actual hit-test area. On touch platforms the painted
+    /// bar is only a few points tall — far below the 44 pt Apple HIG
+    /// minimum — so we centre the thin bar inside a much taller invisible
+    /// strip that's comfortable to tap and drag. On macOS the pointer is
+    /// precise, so the hit area can hug the visible bar.
+    private var touchTargetHeight: CGFloat {
+        #if os(iOS)
+        return 24
+        #else
+        return barThickness
+        #endif
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             GeometryReader { geo in
@@ -69,9 +86,11 @@ struct ProgressScrubber: View {
                         Rectangle()
                             .fill(Color.accentColor)
                             .frame(width: 2)
-                            .position(x: x, y: geo.size.height / 2)
+                            .position(x: x, y: barThickness / 2)
                     }
                 }
+                .frame(height: barThickness)
+                .frame(maxHeight: .infinity)
                 .contentShape(Rectangle())
                 .onContinuousHover { phase in
                     switch phase {
@@ -115,7 +134,7 @@ struct ProgressScrubber: View {
                     }
                 }
             }
-            .frame(height: isPressed ? 8 : 6)
+            .frame(height: touchTargetHeight)
             .animation(.easeOut(duration: 0.12), value: isPressed)
         }
     }

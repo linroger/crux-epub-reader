@@ -26,7 +26,27 @@ struct ContentView: View {
 
         Group {
             if let book = selectedBook, let bookId = appState.selectedBookId {
-                // Reader view when a book is open
+                // Reader view when a book is open.
+                #if os(iOS)
+                // iOS has no window toolbar host — without a NavigationStack
+                // the reader's entire toolbar (back to library, chapters,
+                // bookmarks, Ask AI) would silently vanish. The library has
+                // its own NavigationStack, and the reader is a state-swapped
+                // sibling here, so it needs its own.
+                NavigationStack {
+                    ReaderView(book: book, bookId: bookId)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarLeading) {
+                                Button {
+                                    appState.selectedBookId = nil
+                                    selectedBook = nil
+                                } label: {
+                                    Label("Library", systemImage: "chevron.left")
+                                }
+                            }
+                        }
+                }
+                #else
                 ReaderView(book: book, bookId: bookId)
                     .toolbar {
                         ToolbarItem(placement: .navigation) {
@@ -38,6 +58,7 @@ struct ContentView: View {
                             }
                         }
                     }
+                #endif
             } else {
                 // Library view as main scene
                 LibraryMainView(

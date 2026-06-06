@@ -624,3 +624,40 @@ html, body {
         box-shadow: 0 0 0 2px rgba(255, 165, 0, 0.3);
     }
 }
+
+/* ----------------------------------------------------------------------
+   Narrow-viewport (iPhone / compact iPad multitasking) layout.
+
+   The default three-column layout reserves a fixed 280 pt gutter on each
+   side for margin notes. That's elegant on a wide window but catastrophic
+   on a ~390 pt phone: the two non-shrinking gutters (560 pt) overflow the
+   viewport and squeeze the text column down to nothing. Below 760 pt we
+   drop to a single full-width reading column. Margin notes are hidden in
+   this mode — on iOS, AI annotations surface in the inspector sheet and
+   highlights still render inline as coloured spans, so nothing is lost.
+   ---------------------------------------------------------------------- */
+@media (max-width: 760px) {
+    .crux-reader-wrapper {
+        display: block;
+        max-width: 100%;
+    }
+
+    .crux-content {
+        flex: none;
+        width: 100%;
+        max-width: 100%;
+        margin-right: 0;
+        padding: 28px 20px calc(28px + env(safe-area-inset-bottom, 0px));
+        font-size: 19px;
+    }
+
+    .crux-margin,
+    .crux-margin-left,
+    .crux-margin-right {
+        display: none;
+    }
+
+    .crux-floating-input {
+        display: none;
+    }
+}

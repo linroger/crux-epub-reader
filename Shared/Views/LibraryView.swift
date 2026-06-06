@@ -82,6 +82,11 @@ struct LibraryMainView: View {
     #if os(iOS)
     @State private var showingSettings = false
     @State private var showingNotes = false
+    // iOS has no multi-window scenes, so the reading-data screens that
+    // macOS opens as windows are presented as sheets from the library.
+    @State private var showingStatistics = false
+    @State private var showingGoals = false
+    @State private var showingStreaks = false
     #endif
 
     // Book details state
@@ -353,6 +358,15 @@ struct LibraryMainView: View {
                 .sheet(isPresented: $showingNotes) {
                     NotesView()
                 }
+                .sheet(isPresented: $showingStatistics) {
+                    StatisticsView()
+                }
+                .sheet(isPresented: $showingGoals) {
+                    ReadingGoalsView()
+                }
+                .sheet(isPresented: $showingStreaks) {
+                    StreaksView()
+                }
                 #endif
                 .confirmationDialog(
                     "Add \(selectedBooks.count) book\(selectedBooks.count == 1 ? "" : "s") to collection",
@@ -457,6 +471,9 @@ struct LibraryMainView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+        #if os(iOS)
+        iOSToolbarContent
+        #else
         ToolbarItemGroup(placement: .automatic) {
             // Batch operations toolbar (when in selection mode)
             if isSelectionMode {
@@ -465,7 +482,253 @@ struct LibraryMainView: View {
                 normalToolbar
             }
         }
+        #endif
     }
+
+    #if os(iOS)
+    /// iPhone/iPad nav bars can't spread a dozen controls the way a macOS
+    /// window toolbar can — they'd crowd or clip. Instead the primary
+    /// action (Add Book) stays a direct button and everything else folds
+    /// into a single overflow menu, the native iOS pattern. This menu is
+    /// also where the reading-data screens (Notes, Statistics, Goals,
+    /// Streaks) and Settings live, since iOS has no app menu bar.
+    @ToolbarContentBuilder
+    private var iOSToolbarContent: some ToolbarContent {
+        if isSelectionMode {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Done") {
+                    isSelectionMode = false
+                    selectedBooks.removeAll()
+                }
+                .fontWeight(.semibold)
+            }
+            ToolbarItem(placement: .principal) {
+                Text("\(selectedBooks.count) selected")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                iOSSelectionMenu
+            }
+        } else {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: onAddBook) {
+                    Label("Add Book", systemImage: "plus")
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                iOSLibraryMenu
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var iOSSelectionMenu: some View {
+        Menu {
+            Button {
+                if selectedBooks.count == sortedAndFilteredBooks.count {
+                    selectedBooks.removeAll()
+                } else {
+                    selectedBooks = Set(sortedAndFilteredBooks.map { $0.id })
+                }
+            } label: {
+                Label(
+                    selectedBooks.count == sortedAndFilteredBooks.count ? "Deselect All" : "Select All",
+                    systemImage: selectedBooks.count == sortedAndFilteredBooks.count ? "checkmark.circle.fill" : "circle"
+                )
+            }
+            .disabled(sortedAndFilteredBooks.isEmpty)
+
+            if !selectedBooks.isEmpty {
+                Divider()
+                if !collections.isEmpty {
+                    Button {
+                        showingBatchCollectionPicker = true
+                    } label: {
+                        Label("Add to Collection", systemImage: "folder.badge.plus")
+                    }
+                }
+                Button {
+                    showingBatchStatusPicker = true
+                } label: {
+                    Label("Change Status", systemImage: "book.circle")
+                }
+                Button(role: .destructive) {
+                    showingBatchDeleteConfirmation = true
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+        } label: {
+            Label("Actions", systemImage: "ellipsis.circle")
+        }
+        .disabled(sortedAndFilteredBooks.isEmpty)
+    }
+
+    @ViewBuilder
+    private var iOSLibraryMenu: some View {
+        Menu {
+            // Library view & organisation
+            if !storedBooks.isEmpty {
+                Button {
+                    isSelectionMode = true
+                } label: {
+                    Label("Select Books", systemImage: "checkmark.circle")
+                }
+            }
+
+            Button {
+                viewMode = viewMode == .list ? .grid : .list
+            } label: {
+                Label(
+                    viewMode == .list ? "Grid View" : "List View",
+                    systemImage: viewMode == .list ? "square.grid.2x2" : "list.bullet"
+                )
+            }
+
+            Menu {
+                Picker("Sort By", selection: $sortOption) {
+                    ForEach(LibrarySortOption.allCases) { option in
+                        Label(option.rawValue, systemImage: option.systemImage)
+                            .tag(option)
+                    }
+                }
+                Divider()
+                Button {
+                    sortAscending.toggle()
+                } label: {
+                    Label(
+                        sortAscending ? "Ascending" : "Descending",
+                        systemImage: sortAscending ? "arrow.up" : "arrow.down"
+                    )
+                }
+            } label: {
+                Label("Sort: \(sortOption.rawValue)", systemImage: "arrow.up.arrow.down")
+            }
+
+            Menu {
+                Picker("Status", selection: $readingStatusFilter) {
+                    ForEach(ReadingStatusFilter.allCases) { status in
+                        Label(status.rawValue, systemImage: status.systemImage)
+                            .tag(status)
+                    }
+                }
+            } label: {
+                Label("Filter: Status", systemImage: readingStatusFilter.systemImage)
+            }
+
+            if !uniqueAuthors.isEmpty {
+                Menu {
+                    Button {
+                        selectedAuthor = nil
+                    } label: {
+                        Label("All Authors", systemImage: "person.2")
+                    }
+                    Divider()
+                    ForEach(uniqueAuthors, id: \.self) { author in
+                        Button {
+                            selectedAuthor = author
+                        } label: {
+                            if selectedAuthor == author {
+                                Label(author, systemImage: "checkmark")
+                            } else {
+                                Text(author)
+                            }
+                        }
+                    }
+                } label: {
+                    Label(selectedAuthor ?? "Filter: Author", systemImage: "person")
+                }
+            }
+
+            if !collections.isEmpty {
+                Menu {
+                    Button {
+                        selectedCollection = nil
+                    } label: {
+                        Label("All Collections", systemImage: "folder")
+                    }
+                    Divider()
+                    ForEach(collections) { collection in
+                        Button {
+                            selectedCollection = collection
+                        } label: {
+                            if selectedCollection?.id == collection.id {
+                                Label(collection.name, systemImage: "checkmark")
+                            } else {
+                                Label(collection.name, systemImage: collection.icon)
+                            }
+                        }
+                    }
+                } label: {
+                    Label(selectedCollection?.name ?? "Filter: Collection", systemImage: "folder")
+                }
+            }
+
+            Button {
+                showingAdvancedFilters = true
+            } label: {
+                Label(hasAdvancedFilters ? "Advanced Filters •" : "Advanced Filters",
+                      systemImage: "line.3.horizontal.decrease.circle")
+            }
+
+            if hasActiveFilters {
+                Button(role: .destructive) {
+                    selectedAuthor = nil
+                    readingStatusFilter = .all
+                    selectedCollection = nil
+                    yearRangeMin = ""
+                    yearRangeMax = ""
+                    selectedLanguage = nil
+                    selectedPublisher = nil
+                    selectedSubjects.removeAll()
+                    selectedTags.removeAll()
+                } label: {
+                    Label("Clear Filters", systemImage: "xmark.circle")
+                }
+            }
+
+            // Library data & app sections
+            Section {
+                Button {
+                    showingCollections = true
+                } label: {
+                    Label("Collections", systemImage: "folder.badge.gearshape")
+                }
+                Button {
+                    showingNotes = true
+                } label: {
+                    Label("Notes & Highlights", systemImage: "note.text")
+                }
+                Button {
+                    showingStatistics = true
+                } label: {
+                    Label("Reading Statistics", systemImage: "chart.bar.xaxis")
+                }
+                Button {
+                    showingGoals = true
+                } label: {
+                    Label("Reading Goals", systemImage: "target")
+                }
+                Button {
+                    showingStreaks = true
+                } label: {
+                    Label("Streaks & Achievements", systemImage: "flame")
+                }
+            }
+
+            Section {
+                Button {
+                    showingSettings = true
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
+            }
+        } label: {
+            Label("More", systemImage: "ellipsis.circle")
+        }
+    }
+    #endif
 
     @ViewBuilder
     private var normalToolbar: some View {
@@ -1016,14 +1279,58 @@ struct LibraryMainView: View {
     #if os(iOS)
     @ViewBuilder
     private func iOSSettingsView() -> some View {
+        // Native iOS "Settings.app" structure: a top-level list of
+        // categories, each pushing to a full-screen detail. This avoids
+        // nesting the sub-views' own `Form`s inside another `Form` (which
+        // renders as broken inset lists) and gives every pane — including
+        // AI Providers, AI Prompt, and About, which were unreachable on
+        // iOS before — room to breathe.
         NavigationStack {
-            Form {
-                GeneralSettingsView()
+            List {
+                Section("Reading") {
+                    NavigationLink {
+                        GeneralSettingsView()
+                            .navigationTitle("General")
+                            .navigationBarTitleDisplayMode(.inline)
+                    } label: {
+                        Label("General", systemImage: "gear")
+                    }
+
+                    NavigationLink {
+                        ReaderSettingsView()
+                            .navigationTitle("Reader")
+                            .navigationBarTitleDisplayMode(.inline)
+                    } label: {
+                        Label("Reader", systemImage: "book")
+                    }
+                }
+
+                Section("Intelligence") {
+                    NavigationLink {
+                        AIProvidersSettingsView()
+                            .navigationTitle("AI Providers")
+                            .navigationBarTitleDisplayMode(.inline)
+                    } label: {
+                        Label("AI Providers", systemImage: "cpu")
+                    }
+
+                    NavigationLink {
+                        AIPromptSettingsView()
+                            .navigationTitle("AI Prompt")
+                            .navigationBarTitleDisplayMode(.inline)
+                    } label: {
+                        Label("AI Prompt", systemImage: "text.alignleft")
+                    }
+                }
 
                 Section {
-                    ReaderSettingsView()
-                } header: {
-                    Text("Reader")
+                    NavigationLink {
+                        AboutView()
+                            .navigationTitle("About")
+                            .navigationBarTitleDisplayMode(.inline)
+                    } label: {
+                        Label("About Crux", systemImage: "info.circle")
+                    }
                 }
             }
             .navigationTitle("Settings")

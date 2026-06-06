@@ -59,6 +59,15 @@ struct ReaderView: View {
     /// Backs the sheet for typing a free-form chapter-scope question.
     @State private var showChapterAskSheet = false
 
+    /// Passage routed into the AI Inspector for annotation. On macOS the
+    /// inspector is only used for chapter-scope analyses and viewing
+    /// highlights, so this stays `nil` there (passage annotation flows
+    /// through the right-click menu + margin notes). On iOS — where the
+    /// reader margins collapse on narrow screens and there's no
+    /// right-click — the floating selection bar sets this so the inspector
+    /// becomes the full-width surface for annotating the selected passage.
+    @State private var inspectorSelection: SelectionData? = nil
+
     private var isTrackingEnabled: Bool {
         settings.first?.trackReadingTime ?? true
     }
@@ -103,7 +112,17 @@ struct ReaderView: View {
     var displayHighlights: [Highlight] {
         var highlights = currentChapterHighlights
 
-        // Add pending selection as a temporary highlight
+        // Add pending selection as a temporary highlight.
+        //
+        // macOS only: after `mouseup` the native selection is cleared, so
+        // painting an accent span over the passage is the user's only
+        // visual cue that the selection was captured. On iOS the native
+        // selection (with its drag handles) stays live and `selectionchange`
+        // fires continuously while dragging — injecting a highlight span
+        // mid-drag mutates the DOM under the selection and fights the
+        // system UI. There the floating selection bar is the affordance, so
+        // we leave the live selection untouched until the user commits.
+        #if os(macOS)
         if let pending = pendingSelection, let pendingId = pendingHighlightId, let chapter = currentChapter {
             let pendingHighlight = Highlight(
                 id: pendingId,
@@ -114,6 +133,7 @@ struct ReaderView: View {
             )
             highlights.append(pendingHighlight)
         }
+        #endif
 
         return highlights
     }
@@ -153,7 +173,12 @@ struct ReaderView: View {
     var currentMarginNotes: [MarginNoteData] {
         var notes: [MarginNoteData] = []
 
-        // Add pending selection first (if any) - uncommitted
+        // Add pending selection first (if any) - uncommitted.
+        // macOS only: the uncommitted margin note carries the Highlight /
+        // Annotate buttons for the captured selection. On iOS those actions
+        // live in the floating selection bar instead, and the live native
+        // selection should not be shadowed by an injected margin note.
+        #if os(macOS)
         if let pending = pendingSelection, let pendingId = pendingHighlightId {
             // Check if there's an error for this pending highlight
             let errorMsg = (loadingHighlightId == pendingId && threadState.error != nil)
@@ -170,6 +195,7 @@ struct ReaderView: View {
                 errorMessage: errorMsg
             ))
         }
+        #endif
 
         // Add committed highlights for current chapter
         for highlight in currentChapterHighlights {
@@ -303,6 +329,16 @@ struct ReaderView: View {
                     insertion: .opacity.combined(with: .move(edge: .trailing)),
                     removal: .opacity.combined(with: .move(edge: .leading))
                 ))
+                #if os(iOS)
+                // Touch platforms have no right-click menu, so surface the
+                // passage actions in a floating bar over the reader.
+                .overlay(alignment: .bottom) {
+                    iOSSelectionToolbar
+                        .padding(.bottom, 12)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.8),
+                                   value: pendingSelection != nil)
+                }
+                #endif
             } else {
                 Text("No content available")
                     .foregroundStyle(.secondary)
@@ -379,6 +415,11 @@ struct ReaderView: View {
             )
         }
         .navigationTitle(book.title)
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { readerToolbarIOS }
+        #endif
+        #if os(macOS)
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
                 // Back through internal-link history. Hidden until the
@@ -405,23 +446,7 @@ struct ReaderView: View {
                 // Bookmarks — a single grouped menu reduces toolbar noise
                 // while keeping both "view" and "add" within one tap.
                 Menu {
-                    Button {
-                        showAddBookmark = true
-                    } label: {
-                        Label("Add Bookmark Here", systemImage: "bookmark.circle")
-                    }
-                    .keyboardShortcut("b", modifiers: .command)
-
-                    Button {
-                        showBookmarks = true
-                    } label: {
-                        Label("View All Bookmarks", systemImage: "bookmark.fill")
-                    }
-
-                    if !annotations.bookmarks.isEmpty {
-                        Divider()
-                        Text("\(annotations.bookmarks.count) bookmark\(annotations.bookmarks.count == 1 ? "" : "s")")
-                    }
+                    bookmarksMenuContent
                 } label: {
                     Label("Bookmarks", systemImage: annotations.bookmarks.isEmpty ? "bookmark" : "bookmark.fill")
                 }
@@ -440,44 +465,7 @@ struct ReaderView: View {
                 // shared follow-up composer live. A free-form prompt is
                 // available via the sheet for anything off-preset.
                 Menu {
-                    Button {
-                        runChapterAIAction(label: "Summarize Chapter",
-                                           prompt: "Write a concise but substantive summary of the current chapter. Capture the central arguments or narrative beats, key turning points, and any concepts the reader needs to carry into later chapters. Keep it tight — under ~250 words — but don't sacrifice insight for brevity.")
-                    } label: {
-                        Label("Summarize Chapter", systemImage: "doc.text.magnifyingglass")
-                    }
-                    .keyboardShortcut("u", modifiers: [.command, .option])
-
-                    Button {
-                        runChapterAIAction(label: "Key Themes & Motifs",
-                                           prompt: "Identify the chapter's principal themes, motifs, and any recurring images or symbols. For each, briefly cite where in the chapter it appears and why it matters to the wider argument or narrative.")
-                    } label: {
-                        Label("Key Themes & Motifs", systemImage: "sparkle.magnifyingglass")
-                    }
-
-                    Button {
-                        runChapterAIAction(label: "Difficult Passages",
-                                           prompt: "Pinpoint two to four passages a careful reader is most likely to find difficult or ambiguous, and for each explain what makes it hard and how to read it. Prefer concrete textual reasons (vocabulary, syntax, rhetorical structure, implied context) over generic remarks.")
-                    } label: {
-                        Label("Explain Difficult Passages", systemImage: "questionmark.text.page")
-                    }
-
-                    Button {
-                        runChapterAIAction(label: "Discussion Questions",
-                                           prompt: "Propose five thought-provoking discussion questions grounded in this chapter. The questions should require interpretation, not recall — each one should be answerable in several ways depending on the reader's stance.")
-                    } label: {
-                        Label("Discussion Questions", systemImage: "bubble.left.and.text.bubble.right")
-                    }
-
-                    Divider()
-
-                    Button {
-                        chapterQuestion = ""
-                        showChapterAskSheet = true
-                    } label: {
-                        Label("Ask About This Chapter…", systemImage: "text.bubble")
-                    }
-                    .keyboardShortcut("a", modifiers: [.command, .option])
+                    askAIMenuContent
                 } label: {
                     Label("Ask AI", systemImage: "sparkles")
                 }
@@ -509,14 +497,18 @@ struct ReaderView: View {
                 .help("More actions")
             }
         }
+        #endif
         .inspector(isPresented: $showAIInspector) {
             ThreadPanel(
-                pendingSelection: nil,
+                pendingSelection: inspectorSelection,
                 book: book,
                 chapter: currentChapter,
                 state: threadState,
                 annotations: $annotations,
-                onDismiss: { showAIInspector = false }
+                onDismiss: {
+                    showAIInspector = false
+                    inspectorSelection = nil
+                }
             )
             .inspectorColumnWidth(min: 320, ideal: 380, max: 520)
         }
@@ -532,6 +524,9 @@ struct ReaderView: View {
                     runChapterAIAction(label: q, prompt: q)
                 }
             )
+            #if os(iOS)
+            .presentationDetents([.medium, .large])
+            #endif
         }
         .sheet(isPresented: $showTableOfContents) {
             NavigationStack {
@@ -828,6 +823,229 @@ struct ReaderView: View {
         #endif
     }
 
+    // MARK: - Reader Toolbar Content (shared)
+
+    /// Bookmark add/view actions, shared by the macOS toolbar menu and the
+    /// iOS overflow menu so both stay in lockstep.
+    @ViewBuilder
+    private var bookmarksMenuContent: some View {
+        Button {
+            showAddBookmark = true
+        } label: {
+            Label("Add Bookmark Here", systemImage: "bookmark.circle")
+        }
+        .keyboardShortcut("b", modifiers: .command)
+
+        Button {
+            showBookmarks = true
+        } label: {
+            Label("View All Bookmarks", systemImage: "bookmark.fill")
+        }
+
+        if !annotations.bookmarks.isEmpty {
+            Divider()
+            Text("\(annotations.bookmarks.count) bookmark\(annotations.bookmarks.count == 1 ? "" : "s")")
+        }
+    }
+
+    /// Chapter-scope AI preset actions, shared by both platforms' toolbars.
+    @ViewBuilder
+    private var askAIMenuContent: some View {
+        Button {
+            runChapterAIAction(label: "Summarize Chapter",
+                               prompt: "Write a concise but substantive summary of the current chapter. Capture the central arguments or narrative beats, key turning points, and any concepts the reader needs to carry into later chapters. Keep it tight — under ~250 words — but don't sacrifice insight for brevity.")
+        } label: {
+            Label("Summarize Chapter", systemImage: "doc.text.magnifyingglass")
+        }
+        .keyboardShortcut("u", modifiers: [.command, .option])
+
+        Button {
+            runChapterAIAction(label: "Key Themes & Motifs",
+                               prompt: "Identify the chapter's principal themes, motifs, and any recurring images or symbols. For each, briefly cite where in the chapter it appears and why it matters to the wider argument or narrative.")
+        } label: {
+            Label("Key Themes & Motifs", systemImage: "sparkle.magnifyingglass")
+        }
+
+        Button {
+            runChapterAIAction(label: "Difficult Passages",
+                               prompt: "Pinpoint two to four passages a careful reader is most likely to find difficult or ambiguous, and for each explain what makes it hard and how to read it. Prefer concrete textual reasons (vocabulary, syntax, rhetorical structure, implied context) over generic remarks.")
+        } label: {
+            Label("Explain Difficult Passages", systemImage: "questionmark.text.page")
+        }
+
+        Button {
+            runChapterAIAction(label: "Discussion Questions",
+                               prompt: "Propose five thought-provoking discussion questions grounded in this chapter. The questions should require interpretation, not recall — each one should be answerable in several ways depending on the reader's stance.")
+        } label: {
+            Label("Discussion Questions", systemImage: "bubble.left.and.text.bubble.right")
+        }
+
+        Divider()
+
+        Button {
+            chapterQuestion = ""
+            showChapterAskSheet = true
+        } label: {
+            Label("Ask About This Chapter…", systemImage: "text.bubble")
+        }
+        .keyboardShortcut("a", modifiers: [.command, .option])
+    }
+
+    #if os(iOS)
+    /// Consolidated reader toolbar for iPhone/iPad. The nav bar can't hold
+    /// the half-dozen controls the macOS window toolbar spreads out, so
+    /// only Chapters and Ask AI stay direct; bookmarks, highlights, search,
+    /// export, and the AI inspector fold into one overflow menu.
+    @ToolbarContentBuilder
+    private var readerToolbarIOS: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                showTableOfContents = true
+            } label: {
+                Label("Chapters", systemImage: "list.bullet")
+            }
+        }
+
+        ToolbarItem(placement: .topBarTrailing) {
+            Menu {
+                askAIMenuContent
+            } label: {
+                Label("Ask AI", systemImage: "sparkles")
+            }
+            .disabled(currentChapter == nil)
+        }
+
+        ToolbarItem(placement: .topBarTrailing) {
+            Menu {
+                Button {
+                    searchState.isSearchActive = true
+                } label: {
+                    Label("Search in Book", systemImage: "magnifyingglass")
+                }
+
+                Section {
+                    bookmarksMenuContent
+                }
+
+                Button {
+                    showHighlights = true
+                } label: {
+                    Label("Highlights", systemImage: "highlighter")
+                }
+
+                Section {
+                    Button {
+                        showAIInspector.toggle()
+                    } label: {
+                        Label(showAIInspector ? "Hide AI Inspector" : "Show AI Inspector",
+                              systemImage: "sidebar.right")
+                    }
+
+                    Button {
+                        showExportAnnotations = true
+                    } label: {
+                        Label("Export Annotations…", systemImage: "square.and.arrow.up")
+                    }
+                    .disabled(annotations.highlights.isEmpty && annotations.bookmarks.isEmpty)
+                }
+
+                if !navigationHistory.isEmpty {
+                    Section {
+                        Button {
+                            popNavigationHistory()
+                        } label: {
+                            Label("Back (undo last link)", systemImage: "chevron.backward.circle")
+                        }
+                    }
+                }
+            } label: {
+                Label("More", systemImage: "ellipsis.circle")
+            }
+        }
+    }
+    #endif
+
+    #if os(iOS)
+    // MARK: - iOS Selection Action Bar
+
+    /// Floating capsule of passage actions shown over the reader whenever
+    /// the user has an active text selection. This is the touch-platform
+    /// stand-in for the macOS right-click selection menu: highlight the
+    /// passage, hand it to the AI Inspector for annotation, or dismiss.
+    @ViewBuilder
+    private var iOSSelectionToolbar: some View {
+        if let selection = pendingSelection {
+            HStack(spacing: 2) {
+                selectionBarButton("Highlight", systemImage: "highlighter") {
+                    handleContextMenuAction(selection, action: .highlight)
+                    finishIOSSelection()
+                }
+
+                selectionBarDivider
+
+                selectionBarButton("Annotate", systemImage: "sparkles") {
+                    // Route the passage into the inspector, which on iPhone
+                    // presents as a sheet — a full-width surface for the
+                    // streaming annotation and follow-up questions. Margin
+                    // notes collapse on narrow screens, so the inspector is
+                    // the place AI output is actually readable.
+                    inspectorSelection = selection
+                    showAIInspector = true
+                    finishIOSSelection()
+                }
+
+                selectionBarDivider
+
+                Button {
+                    finishIOSSelection()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 40, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Dismiss selection actions")
+            }
+            .padding(.horizontal, 6)
+            .background(.regularMaterial, in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
+            .shadow(color: .black.opacity(0.18), radius: 12, x: 0, y: 4)
+            .padding(.horizontal, 16)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+
+    private var selectionBarDivider: some View {
+        Rectangle()
+            .fill(Color.primary.opacity(0.12))
+            .frame(width: 1, height: 24)
+    }
+
+    private func selectionBarButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 2) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 17, weight: .medium))
+                Text(title)
+                    .font(.system(size: 10, weight: .medium))
+            }
+            .frame(minWidth: 60, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+    }
+
+    /// Clears the pending selection and drops the live web selection so the
+    /// floating bar dismisses cleanly after an action runs.
+    private func finishIOSSelection() {
+        clearPendingSelection()
+        evaluateJavaScript("window.getSelection().removeAllRanges();")
+    }
+    #endif
+
     private func handleTextSelection(_ selectionData: SelectionData) {
         guard currentChapter != nil else { return }
 
@@ -975,6 +1193,10 @@ struct ReaderView: View {
     /// because chapter analyses aren't tied to a specific passage.
     private func runChapterAIAction(label: String, prompt: String) {
         guard let chapter = currentChapter else { return }
+        // Chapter-scope analyses use the whole-chapter context, not a
+        // selected passage — clear any passage routed in from the iOS
+        // selection bar so the inspector shows this analysis.
+        inspectorSelection = nil
         showAIInspector = true
         threadState.resolvedSystemPrompt = resolvePromptFromSettings()
         threadState.runTracked {
@@ -1680,7 +1902,11 @@ struct ChapterAskSheet: View {
             }
         }
         .padding(20)
+        #if os(macOS)
         .frame(width: 480)
+        #else
+        .frame(maxWidth: .infinity)
+        #endif
         .onAppear { fieldFocused = true }
     }
 }

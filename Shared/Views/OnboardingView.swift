@@ -27,7 +27,7 @@ struct OnboardingView: View {
             symbol: "book.fill",
             title: "Welcome to Crux",
             subtitle: "An AI-native EPUB reader for deep, attentive reading.",
-            body: "Crux pairs a clean reading experience with margin-grade AI annotations, persistent notes, and a polished library — all in a single native macOS app."
+            body: "Crux pairs a clean reading experience with margin-grade AI annotations, persistent notes, and a polished library — all in a single native app for Mac, iPad, and iPhone."
         ),
         OnboardingPage(
             symbol: "highlighter",
@@ -75,8 +75,9 @@ struct OnboardingView: View {
                 }
             }
             #if os(iOS)
-            .tabViewStyle(.page)
-            .indexViewStyle(.page(backgroundDisplayMode: .always))
+            // Hide the built-in page dots — the footer below already shows a
+            // page indicator, and two stacked dot rows looks broken.
+            .tabViewStyle(.page(indexDisplayMode: .never))
             #endif
             .frame(minHeight: 360)
 
@@ -125,7 +126,14 @@ struct OnboardingView: View {
             }
             .padding(20)
         }
+        // macOS presents onboarding as a fixed-size sheet; iOS fills the
+        // presented sheet, so a 560 pt minimum would overflow an iPhone and
+        // clip the footer button off-screen.
+        #if os(macOS)
         .frame(minWidth: 560, idealWidth: 640, minHeight: 480, idealHeight: 520)
+        #else
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        #endif
         .background(.background)
     }
 
