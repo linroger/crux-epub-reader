@@ -220,8 +220,10 @@ final class LibraryBackupService {
                     }
                 }
             } else {
-                // Create new book
-                let book = createBookFromBackup(bookData, collectionMap: collectionMap)
+                // Create new book. `uuid` was already validated above, so
+                // pass it through rather than re-parsing (and never crash on
+                // untrusted backup contents).
+                let book = createBookFromBackup(bookData, id: uuid, collectionMap: collectionMap)
                 modelContext.insert(book)
                 stats.booksCreated += 1
             }
@@ -285,12 +287,9 @@ final class LibraryBackupService {
 
     private func createBookFromBackup(
         _ backupData: LibraryBackup.BookBackupData,
+        id uuid: UUID,
         collectionMap: [String: BookCollection]
     ) -> StoredBook {
-        guard let uuid = UUID(uuidString: backupData.id) else {
-            fatalError("Invalid UUID in backup data")
-        }
-
         let book = StoredBook(
             id: uuid,
             title: backupData.title,

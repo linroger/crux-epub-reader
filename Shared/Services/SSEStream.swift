@@ -16,12 +16,24 @@ struct SSEParser {
     static func payloadStream(
         from byteStream: AsyncThrowingStream<Data, Error>
     ) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
+        // Guard against a misbehaving server that streams indefinitely
+        // without ever emitting a newline — without this the line buffer
+        // would grow until the app runs out of memory. A single SSE data
+        // line is realistically well under this ceiling.
+        let maxBufferedBytes = 16 * 1024 * 1024
+
+        return AsyncThrowingStream { continuation in
             Task {
                 var buffer = Data()
                 do {
                     for try await chunk in byteStream {
                         buffer.append(chunk)
+
+                        if buffer.count > maxBufferedBytes {
+                            AppLog.ai.error("SSE buffer exceeded \(maxBufferedBytes) bytes without a line break; aborting stream.")
+                            continuation.finish(throwing: AIProviderError.invalidResponse)
+                            return
+                        }
                         // Process complete lines (separated by \n).
                         while let newlineRange = buffer.range(of: Data([0x0A])) {
                             let lineData = buffer.subdata(in: 0..<newlineRange.lowerBound)

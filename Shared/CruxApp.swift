@@ -10,22 +10,53 @@ struct CruxApp: App {
     @Environment(\.openWindow) private var openWindow
 
     init() {
+        let schema = Schema([
+            StoredBook.self,
+            BookCollection.self,
+            AppSettings.self,
+            AIProviderConfig.self,
+            ReadingSession.self,
+            ReadingGoal.self,
+            GoalAchievement.self,
+            ReadingStreak.self,
+            Achievement.self,
+            SearchHistoryItem.self
+        ])
+        modelContainer = Self.makeModelContainer(schema: schema)
+    }
+
+    /// Builds the SwiftData container, recovering from a corrupt or
+    /// schema-incompatible on-disk store rather than bricking the app.
+    ///
+    /// If the store can't be opened (common after an OS/app upgrade that
+    /// changes the schema, or after SQLite corruption), we move the failed
+    /// store aside and start fresh. This only loses SwiftData *metadata*
+    /// (reading progress, collections, settings) — the imported EPUB files
+    /// and the annotation JSON live outside SwiftData and are re-imported by
+    /// `recoverOrphanedBooks()` on the next launch, so the user's library and
+    /// highlights survive. A second failure is genuinely unrecoverable.
+    private static func makeModelContainer(schema: Schema) -> ModelContainer {
+        let configuration = ModelConfiguration(schema: schema)
         do {
-            // Initialize SwiftData container with all models
-            modelContainer = try ModelContainer(
-                for: StoredBook.self,
-                    BookCollection.self,
-                    AppSettings.self,
-                    AIProviderConfig.self,
-                    ReadingSession.self,
-                    ReadingGoal.self,
-                    GoalAchievement.self,
-                    ReadingStreak.self,
-                    Achievement.self,
-                    SearchHistoryItem.self
-            )
+            return try ModelContainer(for: schema, configurations: configuration)
         } catch {
-            fatalError("Failed to initialize SwiftData: \(error)")
+            AppLog.storage.error("SwiftData init failed: \(error.localizedDescription, privacy: .public). Resetting store and retrying.")
+            resetStore(at: configuration.url)
+            do {
+                return try ModelContainer(for: schema, configurations: configuration)
+            } catch {
+                fatalError("Failed to initialize SwiftData after store reset: \(error)")
+            }
+        }
+    }
+
+    /// Removes a SQLite-backed SwiftData store and its `-wal`/`-shm` sidecar
+    /// files so a fresh container can be created in its place.
+    private static func resetStore(at storeURL: URL) {
+        let fileManager = FileManager.default
+        for suffix in ["", "-wal", "-shm"] {
+            let sidecar = URL(fileURLWithPath: storeURL.path + suffix)
+            try? fileManager.removeItem(at: sidecar)
         }
     }
 

@@ -736,7 +736,16 @@ actor EPUBParser {
         return chapters
     }
 
+    /// Maximum table-of-contents nesting we'll recurse through. Real TOCs
+    /// rarely exceed three or four levels; this cap stops a malformed or
+    /// maliciously deep nav/NCX document from overflowing the stack.
+    private static let maxTOCDepth = 64
+
     private func parseNavList(_ content: String, baseURL: URL, chapters: inout [Chapter], order: inout Int, depth: Int) {
+        guard depth < Self.maxTOCDepth else {
+            AppLog.parser.warning("Nav list nesting exceeded \(Self.maxTOCDepth) levels; stopping recursion.")
+            return
+        }
         // Parse <li> elements with <a> tags
         let liPattern = #"<li[^>]*>([\s\S]*?)</li>"#
 
@@ -841,6 +850,10 @@ actor EPUBParser {
 
     /// Parse navPoints at a given level, handling nesting recursively
     private func parseNavPointsAtLevel(_ content: String, baseURL: URL, chapters: inout [Chapter], order: inout Int, depth: Int) {
+        guard depth < Self.maxTOCDepth else {
+            AppLog.parser.warning("NCX navPoint nesting exceeded \(Self.maxTOCDepth) levels; stopping recursion.")
+            return
+        }
         var searchStart = content.startIndex
 
         while let openRange = content.range(of: "<navPoint", options: .caseInsensitive, range: searchStart..<content.endIndex) {
@@ -897,19 +910,16 @@ actor EPUBParser {
             title = cleanTitle(String(content[textContentStart.upperBound..<textEnd.lowerBound]))
         }
 
-        // Extract navPoint id attribute
-        var navPointId = "ncx-\(order)"
-        if let idAttr = content.range(of: "id=\"", options: .caseInsensitive),
-           let idEnd = content.range(of: "\"", range: idAttr.upperBound..<content.endIndex) {
-            navPointId = String(content[idAttr.upperBound..<idEnd.lowerBound])
-        }
+        // Extract navPoint id attribute (single or double quotes). The
+        // navPoint's own id is the first `id=` in the content.
+        let navPointId = attributeValue("id", in: content) ?? "ncx-\(order)"
 
-        // Extract content src
+        // Extract content src (single or double quotes). Scope to the
+        // <content> tag so a stray src elsewhere can't be picked up.
         var href = ""
         if let contentTag = content.range(of: "<content", options: .caseInsensitive),
-           let srcAttr = content.range(of: "src=\"", options: .caseInsensitive, range: contentTag.upperBound..<content.endIndex),
-           let srcEnd = content.range(of: "\"", range: srcAttr.upperBound..<content.endIndex) {
-            href = decodeHTMLEntities(String(content[srcAttr.upperBound..<srcEnd.lowerBound]))
+           let src = attributeValue("src", in: String(content[contentTag.lowerBound...])) {
+            href = decodeHTMLEntities(src)
         }
 
         // Add this navPoint as a chapter
@@ -1095,6 +1105,18 @@ actor EPUBParser {
     }
 
     // MARK: - Utilities
+
+    /// Extracts the first value of `name="…"` or `name='…'` from a fragment
+    /// of markup. XML attributes may use either quote style; the older NCX
+    /// parser only matched double quotes and silently dropped chapters whose
+    /// `src`/`id` were single-quoted (which is perfectly valid XML).
+    private func attributeValue(_ name: String, in text: String) -> String? {
+        let pattern = "\\b\(name)\\s*=\\s*[\"']([^\"']+)[\"']"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let range = Range(match.range(at: 1), in: text) else { return nil }
+        return String(text[range])
+    }
 
     /// Normalize a raw table-of-contents label into clean display text.
     ///

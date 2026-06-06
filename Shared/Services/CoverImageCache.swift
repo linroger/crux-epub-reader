@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import ImageIO
 
 #if os(macOS)
 import AppKit
@@ -68,42 +69,33 @@ actor CoverImageCache {
     }
 
     private func resized(data: Data, target: CGSize) -> PlatformImage? {
-        #if os(macOS)
-        guard let source = NSImage(data: data) else { return nil }
-        let aspect = source.size.width / max(source.size.height, 1)
-        let targetAspect = target.width / max(target.height, 1)
-        let drawSize: CGSize
-        if aspect > targetAspect {
-            drawSize = CGSize(width: target.width, height: target.width / aspect)
-        } else {
-            drawSize = CGSize(width: target.height * aspect, height: target.height)
+        // Downsample with ImageIO rather than decoding the full-resolution
+        // cover and redrawing it. CGImageSourceCreateThumbnailAtIndex decodes
+        // straight to a thumbnail bounded by `maxPixelSize`, so memory stays
+        // bounded even for a pathologically large cover (e.g. a 6000×6000 PNG
+        // that would otherwise allocate ~140 MB just to be shrunk to a row).
+        let maxPixelSize = Int(max(target.width, target.height).rounded())
+        guard maxPixelSize > 0,
+              let source = CGImageSourceCreateWithData(data as CFData,
+                                                       [kCGImageSourceShouldCache: false] as CFDictionary) else {
+            return nil
         }
 
-        let result = NSImage(size: drawSize)
-        result.lockFocus()
-        defer { result.unlockFocus() }
-        NSGraphicsContext.current?.imageInterpolation = .high
-        source.draw(
-            in: CGRect(origin: .zero, size: drawSize),
-            from: .zero,
-            operation: .copy,
-            fraction: 1.0
-        )
-        return result
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
+        ]
+
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return nil
+        }
+
+        #if os(macOS)
+        return NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
         #else
-        guard let source = UIImage(data: data) else { return nil }
-        let aspect = source.size.width / max(source.size.height, 1)
-        let targetAspect = target.width / max(target.height, 1)
-        let drawSize: CGSize
-        if aspect > targetAspect {
-            drawSize = CGSize(width: target.width, height: target.width / aspect)
-        } else {
-            drawSize = CGSize(width: target.height * aspect, height: target.height)
-        }
-        let renderer = UIGraphicsImageRenderer(size: drawSize)
-        return renderer.image { _ in
-            source.draw(in: CGRect(origin: .zero, size: drawSize))
-        }
+        return UIImage(cgImage: cgImage)
         #endif
     }
 }

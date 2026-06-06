@@ -32,7 +32,12 @@ actor BookStorage {
     private let annotationsDirectory: URL
 
     private init() {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        // The documents directory is always present on Apple platforms, but
+        // fall back to the (always-available) temporary directory rather than
+        // force-unwrapping and crashing the app on launch in the rare event
+        // it can't be resolved.
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
         booksDirectory = docs.appendingPathComponent("Books", isDirectory: true)
         annotationsDirectory = docs.appendingPathComponent("Annotations", isDirectory: true)
 
