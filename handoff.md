@@ -575,3 +575,49 @@ Settings Model → AI Provider Protocol → Provider Implementations → Setting
   * **Open follow-up:** iOS compiles but its runtime layout/behavior is
     unverified (the app was de-facto macOS-only). Recommend a dedicated
     iOS QA pass before shipping the iOS build.
+- 2026-06-07: **iOS/iPadOS SHIP-READINESS + ROBUSTNESS PASS**
+  * **iOS reader layout (critical):** the three-column reader reserved fixed
+    280 pt gutters each side; on a ~390 pt phone they overflowed and crushed
+    the text column to nothing. Added a `@media (max-width: 760px)` mode in
+    `reader.css` that collapses to a single full-width reading column and
+    hides the margin-note gutters.
+  * **iOS reader navigation (critical):** `ContentView`'s reader branch had
+    no `NavigationStack` on iOS, so the entire reader toolbar (back, chapters,
+    bookmarks, Ask AI) silently vanished. Wrapped it in a `NavigationStack`
+    with a Library back button. Consolidated the reader toolbar into
+    Chapters + Ask AI + a single overflow menu (search/bookmarks/highlights/
+    inspector/export); factored `bookmarksMenuContent`/`askAIMenuContent`
+    shared across both platforms.
+  * **iOS text selection:** macOS uses a right-click `NSMenu`; iOS had no
+    affordance. Added a floating Highlight/Annotate selection bar; passage
+    annotation routes into the AI Inspector (a sheet on iPhone, since margin
+    notes collapse on narrow screens). Pending-highlight DOM mutation gated to
+    macOS so it doesn't fight the live iOS selection.
+  * **iOS settings/library access:** rebuilt iOS settings as native push
+    navigation incl. AI Providers / AI Prompt / About (previously
+    unreachable); surfaced Notes/Statistics/Goals/Streaks/Settings via the iOS
+    library overflow menu (previously macOS-only windows).
+  * **Onboarding:** a 560 pt minWidth overflowed iPhone and clipped the footer
+    button — verified+fixed on the simulator; removed duplicate page dots.
+  * **Misc iOS:** ProgressScrubber hit area 6 pt → 24 pt; StatisticsView fixed
+    frame guarded; Info.plist interface orientations; ChapterAskSheet adaptive.
+  * **Robustness (audited 3 subsystems, fixed real crash/OOM/data-loss
+    vectors):** ModelContainer init recovers from a corrupt store instead of
+    `fatalError` (library + annotations survive via orphan recovery); EPUB TOC
+    parsing gained a 64-level recursion cap (stack-overflow guard) and
+    single-quote NCX attribute support; removed the restore `fatalError` on
+    untrusted backup UUIDs; `CoverImageCache` now downsamples via ImageIO
+    (bounded memory for huge covers); SSE line buffer + provider error-body
+    drains are now bounded (OOM guards); chapterless EPUBs throw a clear error;
+    import rolls back the copied file on failure; `BookStorage` documents-dir
+    lookup no longer force-unwraps.
+  * **Verified false positives (already handled, no change):** ZIP header
+    reads are bounds-checked before `readUInt`; `extractChapterTitle` already
+    runs through `cleanTitle` (TOC HTML-tag P0 stays fixed).
+  * **Known deferred (architectural, need dedicated testing):**
+    `KeychainService.loadAPIKeySync` blocks the caller; `AIProviderManager`
+    is `@Observable` without a class-level `@MainActor`. Both work in practice;
+    converting them is a larger refactor across many call sites.
+  * **Build status:** `Crux_macOS` and `Crux_iOS` both **BUILD SUCCEEDED**;
+    iPhone-17-Pro simulator launch + onboarding verified visually. Commits:
+    `11e2bd7` (iOS), `d7fe2eb` + `efdf2d5` (robustness).
