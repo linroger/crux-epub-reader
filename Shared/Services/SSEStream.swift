@@ -67,6 +67,26 @@ struct SSEParser {
 /// `AsyncThrowingStream<Data, Error>` of variable-size chunks. We accumulate
 /// up to ~4 KiB between emissions to keep parsing efficient without
 /// introducing meaningful delay.
+extension AsyncThrowingStream where Element == Data, Failure == Error {
+    /// Collect a (typically error) response body into a single `Data`, capped
+    /// so a misbehaving server returning a huge non-2xx body can't exhaust
+    /// memory while we read its message. 64 KB is far larger than any real
+    /// API error payload. Returns whatever was read if the stream throws.
+    func collectBody(maxBytes: Int = 64 * 1024) async -> Data {
+        var collected = Data()
+        do {
+            for try await chunk in self {
+                collected.append(chunk)
+                if collected.count >= maxBytes { break }
+            }
+        } catch {
+            // Return whatever we managed to read; the caller only needs an
+            // approximate error message.
+        }
+        return collected
+    }
+}
+
 extension URLSession {
     func dataChunks(for request: URLRequest) async throws -> (AsyncThrowingStream<Data, Error>, URLResponse) {
         let (bytes, response) = try await self.bytes(for: request)

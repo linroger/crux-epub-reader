@@ -162,8 +162,7 @@ actor LMStudioProvider: AIProvider {
                         throw AIProviderError.invalidResponse
                     }
                     if httpResponse.statusCode != 200 {
-                        var collected = Data()
-                        for try await chunk in chunkStream { collected.append(chunk) }
+                        let collected = await chunkStream.collectBody()
                         let message = parseErrorMessage(collected) ?? "LM Studio returned \(httpResponse.statusCode)"
                         throw AIProviderError.apiError(statusCode: httpResponse.statusCode, message: message)
                     }

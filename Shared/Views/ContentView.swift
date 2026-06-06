@@ -238,6 +238,7 @@ struct ContentView: View {
             // Copy to app storage
             let (storedURL, bookId) = try await storage.importBook(from: url)
 
+            do {
             // Parse the book
             let book = try await parser.parse(url: storedURL)
 
@@ -279,6 +280,14 @@ struct ContentView: View {
 
             // Show success message
             errorHandler.showSuccess("Book imported successfully")
+            } catch {
+                // The file copied but parsing or persistence failed (e.g. a
+                // chapterless EPUB now throws). Roll back the on-disk copy so
+                // a failed import doesn't leak an orphaned file and so
+                // re-importing the same book later starts from a clean slate.
+                try? await storage.removeBook(bookId)
+                throw error
+            }
         } catch {
             errorHandler.handle(
                 AppError.epubParsingFailed(error.localizedDescription),

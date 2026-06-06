@@ -526,6 +526,12 @@ actor EPUBParser {
             chapters = try findHTMLChaptersFallback(baseURL: baseURL)
         }
 
+        // Every strategy failed. Surface a clear error instead of importing a
+        // book that would open to an empty reader with no explanation.
+        guard !chapters.isEmpty else {
+            throw EPUBParserError.parsingFailed("No readable chapters were found in this EPUB.")
+        }
+
         // Try to find cover image with multiple strategies
         let coverImage = findCoverImage(content, manifest: manifest, baseURL: baseURL)
 

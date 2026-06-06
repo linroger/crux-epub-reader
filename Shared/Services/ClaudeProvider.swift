@@ -214,8 +214,7 @@ actor ClaudeProvider: AIProvider {
                         throw AIProviderError.invalidResponse
                     }
                     if httpResponse.statusCode != 200 {
-                        var collected = Data()
-                        for try await chunk in chunkStream { collected.append(chunk) }
+                        let collected = await chunkStream.collectBody()
                         let message = String(data: collected, encoding: .utf8) ?? "Unknown error"
                         throw AIProviderError.apiError(statusCode: httpResponse.statusCode, message: message)
                     }
