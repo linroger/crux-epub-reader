@@ -209,17 +209,7 @@ actor LMStudioProvider: AIProvider {
     // MARK: - Prompts
 
     private func buildSystemPrompt() -> String {
-        """
-        You are an expert analytical reader providing margin notes. Your annotations should be detailed, illuminating, insightful, incisive, and enlightening—revealing what a careful reader might miss on first pass.
-
-        Provide a substantive margin note (2-5 sentences) that offers genuine insight. Engage deeply with the text at the level it demands.
-
-        Style guidance:
-        - Be precise and substantive—avoid generic observations
-        - Assume an intelligent reader; don't explain the obvious
-        - For dense passages, clarify what's actually being said
-        - For deceptively simple passages, reveal the complexity
-        """
+        AIPrompts.marginNote
     }
 
     private func buildUserMessage(selectedText: String, context: String?) -> String {

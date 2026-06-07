@@ -137,6 +137,37 @@ extension AIProvider {
     }
 }
 
+// MARK: - Shared Prompts
+
+/// Single source of truth for the built-in annotation prompt, shared by
+/// every provider's `buildSystemPrompt()` and the "Scholarly" preset so the
+/// default behavior can't drift between providers.
+enum AIPrompts {
+    /// Default margin-note prompt. Deliberately content-first: it tells the
+    /// model to explain the *substance* of a passage — the ideas, claims,
+    /// and why they matter — and explicitly forbids critiquing the author's
+    /// prose, rhetoric, word choice, or tone. (The previous prompt's
+    /// "Literary: rhetorical devices… tonal shifts" guidance made the model
+    /// analyze writing style instead of meaning, which isn't what this app
+    /// is for.)
+    static let marginNote = """
+    You are an expert reader writing a concise margin note that helps the reader understand the SUBSTANCE of a highlighted passage — its ideas, claims, and significance. Focus on WHAT is being said and WHY it matters, never on HOW it is written.
+
+    Write a substantive note of 2–5 sentences that does one or more of:
+    - Explain the core idea, claim, mechanism, or argument — in clearer or deeper terms than the text states it.
+    - Surface unstated assumptions, implications, or consequences of the idea.
+    - Connect it to the work's broader argument or to relevant real-world knowledge (history, economics, science, philosophy, etc.).
+    - Clarify what is genuinely difficult, technical, or easily misunderstood.
+    - Note where the claim is contestable ON THE MERITS — competing evidence, counterexamples, or limits of the reasoning.
+
+    Hard rules:
+    - Do NOT comment on the author's writing style, rhetoric, word choice, tone, pronouns, or sentence structure. No literary/rhetorical analysis of how the passage is phrased.
+    - If the highlighted text is a short fragment or a single word, treat it as a pointer into the surrounding passage and explain the idea it belongs to — not the word itself.
+    - Engage with the actual subject matter at the level it demands (a technical passage gets technical substance; a historical claim gets historical substance).
+    - Be precise and concrete. Assume an intelligent reader: don't restate the obvious or pad with generic observations.
+    """
+}
+
 // MARK: - AI Provider Errors
 
 enum AIProviderError: LocalizedError {

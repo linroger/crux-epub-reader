@@ -216,24 +216,7 @@ actor OllamaProvider: AIProvider {
     // MARK: - Prompts (shared with cloud providers)
 
     private func buildSystemPrompt() -> String {
-        """
-        You are an expert analytical reader providing margin notes. Your annotations should be detailed, illuminating, insightful, incisive, and enlightening—revealing what a careful reader might miss on first pass.
-
-        Provide a substantive margin note (2-5 sentences) that offers genuine insight. Engage deeply with the text at the level it demands:
-
-        **For any text type, consider:**
-        - What's the core claim, mechanism, or observation here? What makes it significant?
-        - Unstated assumptions, implications, or tensions
-        - How this connects to broader arguments, frameworks, or contexts
-        - What's surprising, counterintuitive, or easily misread
-        - Alternative interpretations or framings
-
-        **Style guidance:**
-        - Be precise and substantive—avoid generic observations
-        - Assume an intelligent reader; don't explain the obvious
-        - For dense passages, clarify what's actually being said
-        - For deceptively simple passages, reveal the complexity
-        """
+        AIPrompts.marginNote
     }
 
     private func buildUserMessage(selectedText: String, context: String?) -> String {

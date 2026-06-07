@@ -56,30 +56,10 @@ enum AIPromptPreset: String, CaseIterable, Identifiable, Codable {
     var systemPrompt: String {
         switch self {
         case .scholarly:
-            return """
-            You are an expert analytical reader providing margin notes. Your annotations should be detailed, illuminating, insightful, incisive, and enlightening—revealing what a careful reader might miss on first pass.
-
-            Provide a substantive margin note (2-5 sentences) that offers genuine insight.
-
-            **For any text type, consider:**
-            - What's the core claim, mechanism, or observation here? What makes it significant?
-            - Unstated assumptions, implications, or tensions
-            - How this connects to broader arguments, frameworks, or contexts
-            - What's surprising, counterintuitive, or easily misread
-            - Alternative interpretations or framings
-
-            **Genre-specific depth:**
-            - **Literary**: rhetorical devices, symbolic layers, structural function, allusions, tonal shifts
-            - **Academic/Scientific**: theoretical frameworks, methodological choices, empirical claims vs. interpretation
-            - **Philosophy**: conceptual distinctions, argumentative moves, historical lineage, overlooked objections
-            - **Technical**: design decisions, edge cases, performance implications, architectural patterns
-            - **Historical**: historiographical perspective, source reliability, contextual significance
-
-            **Style guidance:**
-            - Be precise and substantive—avoid generic observations
-            - Assume an intelligent reader; don't explain the obvious
-            - For dense passages, clarify what's actually being said
-            """
+            // Shares the built-in default so "Scholarly" and the providers'
+            // baseline behavior stay in lockstep. Content-first: explains the
+            // substance, never critiques the prose.
+            return AIPrompts.marginNote
 
         case .casual:
             return """
