@@ -151,6 +151,26 @@ struct ChapterRow: View {
 
     @State private var isHovering = false
 
+    /// Plain-text preview for the row subtitle. `chapter.content` is raw
+    /// XHTML, so a naive `prefix` shows the `<html xmlns=…>` boilerplate
+    /// instead of prose. Strip tags (and decode the few common entities)
+    /// from a bounded prefix, collapse whitespace, then take a short lead.
+    private func chapterSnippet(_ html: String) -> String? {
+        let bounded = String(html.prefix(4000))
+        var text = bounded.replacingOccurrences(
+            of: "<[^>]+>", with: " ", options: .regularExpression
+        )
+        let entities = ["&nbsp;": " ", "&amp;": "&", "&lt;": "<", "&gt;": ">", "&#39;": "'", "&quot;": "\""]
+        for (entity, replacement) in entities {
+            text = text.replacingOccurrences(of: entity, with: replacement)
+        }
+        text = text.replacingOccurrences(
+            of: "\\s+", with: " ", options: .regularExpression
+        ).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return nil }
+        return String(text.prefix(100))
+    }
+
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 0) {
@@ -179,8 +199,7 @@ struct ChapterRow: View {
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
 
-                        if let snippet = chapter.content.prefix(100).trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: .newlines).first,
-                           !snippet.isEmpty {
+                        if let snippet = chapterSnippet(chapter.content), !snippet.isEmpty {
                             Text(snippet)
                                 .font(.system(size: 11))
                                 .foregroundStyle(.secondary)
