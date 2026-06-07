@@ -324,7 +324,17 @@ struct ReaderView: View {
                         followInternalLink(path: path, fragment: fragment)
                     }
                 )
-                .id(currentChapterIndex)  // Force view recreation on chapter change
+                // Key the WebView on the rendered file, NOT the chapter index.
+                // Many EPUBs map several TOC entries (file.xhtml#sec1,
+                // file.xhtml#sec2, …) to a single XHTML file. While you scroll,
+                // the viewport tracker advances `currentChapterIndex` as you
+                // cross those in-file section boundaries — so keying on the
+                // index tore down and rebuilt the entire WebView mid-scroll,
+                // which flashed white and dumped you back at the top. Keying on
+                // the file path keeps the live WebView (and your scroll
+                // position) for same-file section changes; only an actual file
+                // change rebuilds it and loads new content.
+                .id(currentChapter?.filePath ?? "crux-no-content")
                 .transition(.asymmetric(
                     insertion: .opacity.combined(with: .move(edge: .trailing)),
                     removal: .opacity.combined(with: .move(edge: .leading))
