@@ -57,7 +57,11 @@ html, body {
 }
 
 .crux-margin {
+    /* Fixed gutter that always fits a 252px note card. Deliberately NOT
+       driven by the user's "Margin Width" setting (that controls the prose
+       padding instead) — a narrow gutter pushes notes onto the text. */
     flex: 0 0 280px;
+    box-sizing: border-box;
     position: relative;
     padding: 48px 12px;
 }
@@ -225,6 +229,10 @@ html, body {
 /* Margin notes */
 .crux-margin-note {
     position: absolute;
+    /* border-box so the 252px width *includes* the 12px padding — otherwise
+       the card is 276px and overflows the 280px gutter past `right: 12px`,
+       spilling onto the prose. */
+    box-sizing: border-box;
     width: 252px;
     padding: 12px;
     background: var(--crux-rule);

@@ -74,6 +74,13 @@ enum ReaderResources {
         backgroundColor: String,
         textColor: String
     ) -> String {
+        // `marginWidth` controls the reading margin — the breathing room on
+        // the sides of the prose — by adjusting the content column's
+        // horizontal padding. It deliberately does NOT touch `.crux-margin`'s
+        // width: those side gutters hold the AI margin notes and must stay
+        // wide enough to contain a ~252px note card. Tying the gutter to this
+        // setting (the old behaviour) shrank it to 60px by default, so notes
+        // overflowed onto the text and blocked selection.
         return """
         :root {
             --crux-font-body: \(fontFamily == "System" ? "system-ui, -apple-system, BlinkMacSystemFont, sans-serif" : "\"\(fontFamily)\", Georgia, serif");
@@ -84,14 +91,12 @@ enum ReaderResources {
         .crux-content {
             font-size: \(fontSize)px;
             line-height: \(lineHeight);
+            padding-left: \(marginWidth)px;
+            padding-right: \(marginWidth)px;
         }
 
         .crux-content p {
             margin-bottom: \(paragraphSpacing)em;
-        }
-
-        .crux-margin {
-            flex-basis: \(marginWidth)px;
         }
         """
     }
