@@ -39,7 +39,7 @@ struct AIRequestOptions: Sendable {
 
     /// Images attached to the *first* user turn for vision-capable models.
     /// Empty for text-only requests. Callers should only populate this when
-    /// the active provider reports `providerType.supportsVision`.
+    /// the active provider+model reports `supportsVision(forModel:)`.
     var images: [AIImageAttachment]
 
     static let `default` = AIRequestOptions()

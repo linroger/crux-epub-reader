@@ -345,19 +345,36 @@ enum ProviderType: String, CaseIterable, Identifiable, Codable {
         true // All providers support streaming
     }
 
-    /// True when the provider's default models can accept image input, so
-    /// the reader can forward EPUB figures alongside the selected passage.
-    /// Conservative on purpose: text-only endpoints (DeepSeek, Kimi,
-    /// MiniMax) are excluded so we never attach images a model would reject.
-    /// `custom` and the local runners are included because the user picks
-    /// the model there and modern local VLMs (llava, qwen2-vl, etc.) are
-    /// common — the worst case is a model that ignores the image.
-    var supportsVision: Bool {
+    /// Whether the *configured model* can accept image input. Vision is a
+    /// per-model capability, not per-provider: `qwen-vl-max` sees images but
+    /// `qwen3-max` rejects an `image_url` content block with a 400. Claude is
+    /// the only family where every current model is multimodal, so it's
+    /// always true; everything else must match a known vision marker in the
+    /// model name. Erring toward *not* attaching keeps text-only models
+    /// working — the worst case is a vision model that just gets text.
+    func supportsVision(forModel model: String?) -> Bool {
         switch self {
-        case .openai, .claude, .qwen, .ollama, .lmstudio, .custom: return true
-        default: return false
+        case .claude:
+            return true
+        case .openai, .qwen, .ollama, .lmstudio, .custom:
+            guard let name = model?.lowercased(), !name.isEmpty else { return false }
+            return Self.visionModelMarkers.contains { name.contains($0) }
+        case .deepseek, .minimax, .kimi, .appleIntelligence:
+            return false
         }
     }
+
+    /// Substrings that identify a vision-language model across the providers
+    /// Crux talks to. Conservative on purpose: a false positive resends the
+    /// exact 400 ("unexpected item type in content") we're guarding against.
+    private static let visionModelMarkers: [String] = [
+        "vision", "-vl", "vl-", "qwen-vl", "qwen2-vl", "qwen2.5-vl", "qwen3-vl",
+        "gpt-4o", "chatgpt-4o", "gpt-4.1", "gpt-4-turbo", "gpt-4-vision",
+        "o1", "o3", "o4-mini", "gpt-5",
+        "llava", "bakllava", "pixtral", "internvl", "minicpm-v", "moondream",
+        "llama3.2-vision", "llama-3.2-vision", "phi-3-vision", "phi-3.5-vision",
+        "gemini", "gemma3", "gemma-3", "mistral-small-3"
+    ]
 
     /// SF Symbol used in pickers and badges.
     var symbolName: String {

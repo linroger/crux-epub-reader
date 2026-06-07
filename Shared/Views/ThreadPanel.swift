@@ -41,11 +41,13 @@ final class ThreadPanelState {
         providerManager?.hasActiveProvider ?? false
     }
 
-    /// Whether the active provider can accept image input. Gates whether
-    /// EPUB figures are forwarded with a passage so we never attach images
-    /// to a text-only endpoint that would reject them.
+    /// Whether the active provider *and its configured model* can accept
+    /// image input. Gates whether EPUB figures are forwarded with a passage
+    /// so we never attach images to a text-only model (e.g. qwen3-max),
+    /// which DashScope/OpenAI reject with a 400.
     var activeSupportsVision: Bool {
-        providerManager?.providers.first(where: { $0.isActive })?.providerType.supportsVision ?? false
+        guard let active = providerManager?.providers.first(where: { $0.isActive }) else { return false }
+        return active.providerType.supportsVision(forModel: active.model)
     }
 
     /// Diagnostic label combining the provider name and configured model.
