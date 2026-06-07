@@ -138,98 +138,16 @@ struct ReaderView: View {
         return highlights
     }
 
-    /// Convert markdown text to HTML
-    private func markdownToHTML(_ text: String) -> String {
-        var result = text
-
-        // Escape HTML entities first
-        result = result
-            .replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-
-        // Bold: **text** or __text__
-        if let regex = try? NSRegularExpression(pattern: #"\*\*(.+?)\*\*|__(.+?)__"#) {
-            result = regex.stringByReplacingMatches(in: result, range: NSRange(result.startIndex..., in: result), withTemplate: "<strong>$1$2</strong>")
-        }
-
-        // Italic: *text* or _text_ (but not inside words for underscore)
-        if let regex = try? NSRegularExpression(pattern: #"\*([^*]+?)\*|(?<!\w)_([^_]+?)_(?!\w)"#) {
-            result = regex.stringByReplacingMatches(in: result, range: NSRange(result.startIndex..., in: result), withTemplate: "<em>$1$2</em>")
-        }
-
-        // Inline code: `code`
-        if let regex = try? NSRegularExpression(pattern: #"`([^`]+?)`"#) {
-            result = regex.stringByReplacingMatches(in: result, range: NSRange(result.startIndex..., in: result), withTemplate: "<code>$1</code>")
-        }
-
-        // Line breaks
-        result = result.replacingOccurrences(of: "\n", with: "<br>")
-
-        return result
-    }
-
-    /// Build margin note data from current highlights for passing to WebView
-    var currentMarginNotes: [MarginNoteData] {
-        var notes: [MarginNoteData] = []
-
-        // Add pending selection first (if any) - uncommitted.
-        // macOS only: the uncommitted margin note carries the Highlight /
-        // Annotate buttons for the captured selection. On iOS those actions
-        // live in the floating selection bar instead, and the live native
-        // selection should not be shadowed by an injected margin note.
-        #if os(macOS)
-        if let pending = pendingSelection, let pendingId = pendingHighlightId {
-            // Check if there's an error for this pending highlight
-            let errorMsg = (loadingHighlightId == pendingId && threadState.error != nil)
-                ? threadState.error?.localizedDescription
-                : nil
-
-            notes.append(MarginNoteData(
-                highlightId: pendingId.uuidString,
-                previewText: String(pending.text.prefix(100)),
-                isCommitted: false,
-                hasThread: false,
-                threadContent: nil,
-                isLoading: false,
-                errorMessage: errorMsg
-            ))
-        }
-        #endif
-
-        // Add committed highlights for current chapter
-        for highlight in currentChapterHighlights {
-            let thread = highlight.threads.first
-            let isLoading = loadingHighlightId == highlight.id
-
-            // Check if there's an error for this highlight
-            let errorMsg = (loadingHighlightId == highlight.id && threadState.error != nil)
-                ? threadState.error?.localizedDescription
-                : nil
-
-            // Build thread content HTML if there are messages
-            var threadContent: String? = nil
-            if let thread = thread, !thread.messages.isEmpty {
-                threadContent = thread.messages.map { msg in
-                    let roleClass = msg.role == .user ? "user" : "assistant"
-                    let htmlContent = markdownToHTML(msg.content)
-                    return "<div class=\"thread-message \(roleClass)\">\(htmlContent)</div>"
-                }.joined()
-            }
-
-            notes.append(MarginNoteData(
-                highlightId: highlight.id.uuidString,
-                previewText: String(highlight.selectedText.prefix(100)),
-                isCommitted: true,
-                hasThread: thread != nil,
-                threadContent: threadContent,
-                isLoading: isLoading,
-                errorMessage: errorMsg
-            ))
-        }
-
-        return notes
-    }
+    /// Margin notes are intentionally disabled. They were absolutely-
+    /// positioned cards injected into the WebView's side gutters, but at
+    /// many window widths they overflowed the reading column, sat on top of
+    /// the prose, and intercepted mouse events — which made the paragraph
+    /// under a note impossible to select or highlight, and made AI responses
+    /// overlap the text. All AI annotation now flows through the native
+    /// `.inspector` ThreadPanel (a real split that pushes content aside and
+    /// hosts the streaming reply + follow-up composer), exactly as it
+    /// already did on iOS. Highlights still render inline as coloured spans.
+    var currentMarginNotes: [MarginNoteData] { [] }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1157,25 +1075,38 @@ struct ReaderView: View {
         annotations.addHighlight(highlight)
         clearPendingSelection()
         try? await BookStorage.shared.saveAnnotations(annotations)
-        
+
         // Clear any previous errors
         threadState.error = nil
-        
+
+        // Surface the reply in the AI inspector — a real side column that
+        // pushes the text aside instead of floating over it — and make this
+        // highlight the panel's active thread so the follow-up composer
+        // targets it. Routing the selection in keeps the passage quote and
+        // live streaming tokens visible while the reply generates; the
+        // "Start Thread" button stays hidden because we kick the thread off
+        // here (it only appears when `currentThread == nil` and not loading).
+        threadState.currentHighlight = highlight
+        threadState.currentThread = nil
+        inspectorSelection = selectionData
+        showAIInspector = true
+
         // Set loading state
         loadingHighlightId = pendingId
-        
+
         // Start the AI thread with optional custom prompt
         if let thread = await threadState.startThread(
             for: highlight,
             book: book,
             chapter: currentChapter,
             bookId: annotations.bookId,
-            customPrompt: customPrompt
+            customPrompt: customPrompt,
+            imageSources: selectionData.images
         ) {
             annotations.addThread(to: pendingId, thread: thread)
             try? await BookStorage.shared.saveAnnotations(annotations)
         }
-        
+
         // Clear loading state
         loadingHighlightId = nil
     }

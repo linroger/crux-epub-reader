@@ -97,10 +97,28 @@ actor OpenAIProvider: AIProvider {
             ])
         }
 
-        messages.append([
-            "role": "user",
-            "content": buildUserMessage(selectedText: selectedText, context: context)
-        ])
+        let userText = buildUserMessage(selectedText: selectedText, context: context)
+        if options.images.isEmpty {
+            messages.append([
+                "role": "user",
+                "content": userText
+            ])
+        } else {
+            // Multimodal content array: text first, then each image. OpenAI-
+            // compatible endpoints (OpenAI, Qwen-VL) accept `data:` URIs and
+            // absolute URLs directly in `image_url.url`.
+            var parts: [[String: Any]] = [["type": "text", "text": userText]]
+            for image in options.images {
+                parts.append([
+                    "type": "image_url",
+                    "image_url": ["url": image.url]
+                ])
+            }
+            messages.append([
+                "role": "user",
+                "content": parts
+            ])
+        }
 
         let body: [String: Any] = [
             "model": model,

@@ -91,10 +91,24 @@ actor LMStudioProvider: AIProvider {
         for message in conversationHistory {
             messages.append(["role": message.role.rawValue, "content": message.content])
         }
-        messages.append([
-            "role": "user",
-            "content": buildUserMessage(selectedText: selection, context: context)
-        ])
+        let userMessage = buildUserMessage(selectedText: selection, context: context)
+        if options.images.isEmpty {
+            messages.append([
+                "role": "user",
+                "content": userMessage
+            ])
+        } else {
+            // LM Studio mirrors the OpenAI vision schema; loaded VLMs
+            // (llava, qwen2-vl, …) read `image_url` data URIs.
+            var parts: [[String: Any]] = [["type": "text", "text": userMessage]]
+            for image in options.images {
+                parts.append(["type": "image_url", "image_url": ["url": image.url]])
+            }
+            messages.append([
+                "role": "user",
+                "content": parts
+            ])
+        }
 
         var body: [String: Any] = [
             "messages": messages,

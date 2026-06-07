@@ -74,8 +74,63 @@ const CruxCFI = {
             endPath: this.getPathToNode(endNode),
             endOffset: range.endOffset,
             text: text,
-            context: context
+            context: context,
+            images: this.getNearbyImages(range)
         };
+    },
+
+    /// Collect images near a selection so vision-capable models can "see"
+    /// the figure a passage refers to. We look inside the selection's
+    /// nearest block ancestor and a couple of element siblings on either
+    /// side (figures usually sit just above/below the prose that discusses
+    /// them). Returns up to `maxImages` source strings — already inline
+    /// `data:` URIs in most EPUBs (see EPUBParser image inlining), or
+    /// absolute URLs otherwise. Oversized payloads are skipped to keep
+    /// requests within provider limits.
+    getNearbyImages: function(range) {
+        const maxImages = 4;
+        const maxDataURILength = 6 * 1024 * 1024; // ~4.5 MB decoded ceiling
+        const blockTags = new Set(['P','DIV','SECTION','ARTICLE','FIGURE','LI','TD','BLOCKQUOTE','MAIN','BODY']);
+
+        let block = range.commonAncestorContainer;
+        if (block.nodeType === Node.TEXT_NODE) block = block.parentElement;
+        while (block && block !== document.body && !blockTags.has(block.tagName)) {
+            block = block.parentElement;
+        }
+        if (!block) return [];
+
+        // Candidate containers: the block itself plus 2 siblings each side.
+        const containers = [block];
+        let prev = block.previousElementSibling, next = block.nextElementSibling, hops = 0;
+        while ((prev || next) && hops < 2) {
+            if (prev) { containers.push(prev); prev = prev.previousElementSibling; }
+            if (next) { containers.push(next); next = next.nextElementSibling; }
+            hops++;
+        }
+
+        const seen = new Set();
+        const out = [];
+        for (const container of containers) {
+            if (out.length >= maxImages) break;
+            const imgs = container.matches && container.matches('img, image')
+                ? [container]
+                : Array.from(container.querySelectorAll('img, image'));
+            for (const el of imgs) {
+                if (out.length >= maxImages) break;
+                const src = el.getAttribute('src')
+                    || el.getAttribute('href')
+                    || el.getAttribute('xlink:href')
+                    || (el.currentSrc || '');
+                if (!src) continue;
+                const ok = src.startsWith('data:image/') || src.startsWith('http://') || src.startsWith('https://');
+                if (!ok) continue;
+                if (src.length > maxDataURILength) continue;
+                if (seen.has(src)) continue;
+                seen.add(src);
+                out.push(src);
+            }
+        }
+        return out;
     },
 
     getFirstTextNode: function(node) {

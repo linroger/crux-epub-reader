@@ -41,6 +41,13 @@ final class ThreadPanelState {
         providerManager?.hasActiveProvider ?? false
     }
 
+    /// Whether the active provider can accept image input. Gates whether
+    /// EPUB figures are forwarded with a passage so we never attach images
+    /// to a text-only endpoint that would reject them.
+    var activeSupportsVision: Bool {
+        providerManager?.providers.first(where: { $0.isActive })?.providerType.supportsVision ?? false
+    }
+
     /// Diagnostic label combining the provider name and configured model.
     /// Drives the small "model badge" in the loading/empty states.
     var activeModelLabel: String? {
@@ -74,7 +81,8 @@ final class ThreadPanelState {
         book: Book,
         chapter: Chapter?,
         bookId: UUID,
-        customPrompt: String? = nil
+        customPrompt: String? = nil,
+        imageSources: [String] = []
     ) async -> Thread? {
         isLoading = true
         error = nil
@@ -113,7 +121,10 @@ final class ThreadPanelState {
             selection: highlight.selectedText
         )
 
-        let options = AIRequestOptions(systemPrompt: resolvedSystemPrompt)
+        // Attach nearby EPUB figures only when the active model is vision-
+        // capable; otherwise we'd send images a text-only endpoint rejects.
+        let attachments = activeSupportsVision ? imageSources.map { AIImageAttachment(url: $0) } : []
+        let options = AIRequestOptions(systemPrompt: resolvedSystemPrompt, images: attachments)
         streamingText = ""
 
         do {
@@ -580,7 +591,13 @@ struct ThreadPanel: View {
         state.currentHighlight = highlight
 
         state.runTracked {
-            if let thread = await state.startThread(for: highlight, book: book, chapter: chapter, bookId: annotations.bookId) {
+            if let thread = await state.startThread(
+                for: highlight,
+                book: book,
+                chapter: chapter,
+                bookId: annotations.bookId,
+                imageSources: selection.images
+            ) {
                 annotations.addThread(to: highlight.id, thread: thread)
                 await saveAnnotations()
             }
@@ -641,6 +658,36 @@ struct ThreadContentView: View {
 
     /// Anchor the ScrollView pins to whenever new tokens arrive.
     private let bottomAnchorID = "thread-bottom"
+
+    /// Load an existing chapter highlight into the panel as the active
+    /// thread so the user can read it and ask follow-ups. If the highlight
+    /// has no thread yet, kick off the first explication. This is what makes
+    /// prior-session annotations continuable rather than read-only.
+    private func activate(_ highlight: Highlight) {
+        state.error = nil
+        state.currentHighlight = highlight
+        if let thread = highlight.threads.first {
+            state.currentThread = thread
+            return
+        }
+        state.currentThread = nil
+        guard state.isConfigured else { return }
+        state.runTracked {
+            if let thread = await state.startThread(
+                for: highlight,
+                book: book,
+                chapter: chapter,
+                bookId: annotations.bookId
+            ) {
+                annotations.addThread(to: highlight.id, thread: thread)
+                do {
+                    try await BookStorage.shared.saveAnnotations(annotations)
+                } catch {
+                    state.error = error
+                }
+            }
+        }
+    }
 
     /// Flashes the "Saved" affordance on the chapter-insight save bar
     /// when the user persists a chapter analysis as a bookmark.
@@ -895,6 +942,8 @@ struct ThreadContentView: View {
 
                             ForEach(chapterHighlights) { highlight in
                                 HighlightRow(highlight: highlight)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { activate(highlight) }
                             }
                         }
                         .padding(.top, 8)

@@ -1,5 +1,31 @@
 import Foundation
 
+/// A single image handed to a vision-capable model alongside the prompt.
+/// Carries either an inline `data:<mime>;base64,…` URI (the common case —
+/// EPUB figures are inlined as data URIs) or a remote `http(s)` URL.
+struct AIImageAttachment: Sendable, Equatable {
+    /// `data:<mime>;base64,<payload>` or an `http(s)://…` URL.
+    let url: String
+
+    init(url: String) { self.url = url }
+
+    var isDataURI: Bool { url.hasPrefix("data:") }
+
+    /// Splits a data URI into (mediaType, base64payload) for providers that
+    /// need them separately (Anthropic's `image` block). Returns nil for
+    /// remote URLs or malformed data URIs.
+    var base64Components: (mediaType: String, data: String)? {
+        guard isDataURI,
+              let semi = url.firstIndex(of: ";"),
+              let comma = url.firstIndex(of: ","),
+              url.distance(from: url.startIndex, to: semi) > 5 else { return nil }
+        let mediaType = String(url[url.index(url.startIndex, offsetBy: 5)..<semi])
+        let payload = String(url[url.index(after: comma)...])
+        guard !mediaType.isEmpty, !payload.isEmpty else { return nil }
+        return (mediaType, payload)
+    }
+}
+
 /// Bundle of optional knobs that the manager forwards to every provider
 /// request. Lets us extend behavior (custom prompt, temperature, etc)
 /// without breaking the protocol every time.
@@ -11,11 +37,17 @@ struct AIRequestOptions: Sendable {
     /// Sampling temperature override. `nil` means provider default.
     var temperature: Double?
 
+    /// Images attached to the *first* user turn for vision-capable models.
+    /// Empty for text-only requests. Callers should only populate this when
+    /// the active provider reports `providerType.supportsVision`.
+    var images: [AIImageAttachment]
+
     static let `default` = AIRequestOptions()
 
-    init(systemPrompt: String? = nil, temperature: Double? = nil) {
+    init(systemPrompt: String? = nil, temperature: Double? = nil, images: [AIImageAttachment] = []) {
         self.systemPrompt = systemPrompt
         self.temperature = temperature
+        self.images = images
     }
 }
 

@@ -345,6 +345,20 @@ enum ProviderType: String, CaseIterable, Identifiable, Codable {
         true // All providers support streaming
     }
 
+    /// True when the provider's default models can accept image input, so
+    /// the reader can forward EPUB figures alongside the selected passage.
+    /// Conservative on purpose: text-only endpoints (DeepSeek, Kimi,
+    /// MiniMax) are excluded so we never attach images a model would reject.
+    /// `custom` and the local runners are included because the user picks
+    /// the model there and modern local VLMs (llava, qwen2-vl, etc.) are
+    /// common — the worst case is a model that ignores the image.
+    var supportsVision: Bool {
+        switch self {
+        case .openai, .claude, .qwen, .ollama, .lmstudio, .custom: return true
+        default: return false
+        }
+    }
+
     /// SF Symbol used in pickers and badges.
     var symbolName: String {
         switch self {

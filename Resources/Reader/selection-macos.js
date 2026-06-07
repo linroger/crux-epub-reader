@@ -44,6 +44,7 @@ document.addEventListener('contextmenu', function(e) {
                 startOffset: cfiData.startOffset,
                 endPath: cfiData.endPath,
                 endOffset: cfiData.endOffset,
+                images: cfiData.images || [],
                 x: e.clientX,
                 y: e.clientY
             });

@@ -173,11 +173,13 @@ struct LibraryMainView: View {
     }
 
     private var recentBooks: [StoredBook] {
+        // Show every in-progress book ordered by recency. The Recent shelf
+        // is a horizontal scroller (see RecentBooksSection), so there's no
+        // need to cap the count — all books the reader has opened and not
+        // yet finished remain one swipe away.
         storedBooks
             .filter { $0.lastOpenedAt != nil && !$0.isFinished }
             .sorted { ($0.lastOpenedAt ?? .distantPast) > ($1.lastOpenedAt ?? .distantPast) }
-            .prefix(5)
-            .map { $0 }
     }
 
     private var sortedAndFilteredBooks: [StoredBook] {

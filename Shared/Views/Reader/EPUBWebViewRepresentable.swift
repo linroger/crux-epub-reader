@@ -233,7 +233,10 @@ class WebViewCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler
                 "startPath": cfi.startPath,
                 "startOffset": cfi.startOffset,
                 "endPath": cfi.endPath,
-                "endOffset": cfi.endOffset
+                "endOffset": cfi.endOffset,
+                // Carried so the highlighter can re-anchor by text search
+                // if the CFI path no longer resolves on a later session.
+                "text": h.selectedText
             ]
         }
 
@@ -262,13 +265,14 @@ class WebViewCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler
                   let endOffset = body["endOffset"] as? Int else { return }
 
             let context = body["context"] as? String ?? ""
+            let images = body["images"] as? [String] ?? []
             let cfiRange = CFIRange(
                 startPath: startPath,
                 startOffset: startOffset,
                 endPath: endPath,
                 endOffset: endOffset
             )
-            let selectionData = SelectionData(text: text, cfiRange: cfiRange, context: context)
+            let selectionData = SelectionData(text: text, cfiRange: cfiRange, context: context, images: images)
 
             DispatchQueue.main.async {
                 self.onTextSelected(selectionData)
@@ -333,14 +337,15 @@ class WebViewCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler
                   let endOffset = body["endOffset"] as? Int else { return }
             
             let context = body["context"] as? String ?? ""
+            let images = body["images"] as? [String] ?? []
             let cfiRange = CFIRange(
                 startPath: startPath,
                 startOffset: startOffset,
                 endPath: endPath,
                 endOffset: endOffset
             )
-            let selectionData = SelectionData(text: text, cfiRange: cfiRange, context: context)
-            
+            let selectionData = SelectionData(text: text, cfiRange: cfiRange, context: context, images: images)
+
             // Store for context menu actions
             self.pendingContextSelection = selectionData
             

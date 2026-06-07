@@ -47,9 +47,20 @@ const CruxHighlighter = {
         const startNode = this.findNodeByPath(startPath);
         const endNode = this.findNodeByPath(endPath);
 
-        if (!startNode || !endNode) return false;
-        if (startNode.nodeType !== Node.TEXT_NODE || endNode.nodeType !== Node.TEXT_NODE) return false;
-        if (startOffset > startNode.textContent.length || endOffset > endNode.textContent.length) return false;
+        // CFI paths can fail to resolve when the document was reflowed
+        // between sessions (a CSS change, an EPUB re-parse, an injected
+        // wrapper). Rather than silently dropping a persisted highlight,
+        // fall back to locating the saved text directly so prior-session
+        // annotations still re-appear.
+        const pathResolves = startNode && endNode
+            && startNode.nodeType === Node.TEXT_NODE
+            && endNode.nodeType === Node.TEXT_NODE
+            && startOffset <= startNode.textContent.length
+            && endOffset <= endNode.textContent.length;
+
+        if (!pathResolves) {
+            return this.applyHighlightByText(id, data.text);
+        }
 
         try {
             const range = document.createRange();
@@ -123,8 +134,133 @@ const CruxHighlighter = {
             return true;
         } catch (e) {
             console.error('Error applying highlight:', e);
+            // Last-ditch fallback: try to anchor by text so the highlight
+            // isn't lost outright.
+            return this.applyHighlightByText(id, data.text);
+        }
+    },
+
+    /// Anchor a highlight by searching the document for its saved text.
+    /// Used when the stored CFI path no longer resolves. Wraps the first
+    /// matching run of text nodes in a `.crux-highlight` span so persisted
+    /// highlights survive reflows that invalidate exact DOM paths.
+    applyHighlightByText: function(id, text) {
+        if (!text || this.highlights.has(id)) return false;
+        const needle = text.replace(/\s+/g, ' ').trim();
+        if (needle.length < 2) return false;
+
+        const root = document.querySelector('.crux-content') || document.body;
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+            acceptNode: function(node) {
+                // Skip whitespace-only nodes and anything already highlighted.
+                if (!node.textContent.trim()) return NodeFilter.FILTER_REJECT;
+                if (node.parentElement && node.parentElement.closest('.crux-highlight')) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        });
+
+        // Build a normalized concatenation of text nodes with an index map
+        // back to (node, offset) so we can translate a match position in the
+        // flattened string into a real DOM Range.
+        const segments = [];
+        let flat = '';
+        let node;
+        while (node = walker.nextNode()) {
+            const raw = node.textContent;
+            for (let i = 0; i < raw.length; i++) {
+                const ch = /\s/.test(raw[i]) ? ' ' : raw[i];
+                // Collapse runs of whitespace in the flattened string.
+                if (ch === ' ' && flat.endsWith(' ')) {
+                    segments.push({ node: node, offset: i, skipped: true });
+                    continue;
+                }
+                segments.push({ node: node, offset: i, skipped: false });
+                flat += ch;
+            }
+        }
+
+        const matchStart = flat.indexOf(needle);
+        if (matchStart === -1) return false;
+        const matchEnd = matchStart + needle.length;
+
+        // Map flattened positions back to DOM via the non-skipped segments.
+        const realSegments = segments.filter(s => !s.skipped);
+        const startSeg = realSegments[matchStart];
+        const endSeg = realSegments[matchEnd - 1];
+        if (!startSeg || !endSeg) return false;
+
+        try {
+            const range = document.createRange();
+            range.setStart(startSeg.node, startSeg.offset);
+            range.setEnd(endSeg.node, endSeg.offset + 1);
+            return this.wrapRange(range, id);
+        } catch (e) {
+            console.error('Text-anchored highlight failed:', e);
             return false;
         }
+    },
+
+    /// Wrap an arbitrary Range in `.crux-highlight` span(s), registering the
+    /// resulting elements under `id`. Shared by the CFI and text-fallback
+    /// paths. Returns true on success.
+    wrapRange: function(range, id) {
+        if (range.startContainer === range.endContainer) {
+            const span = document.createElement('span');
+            span.className = 'crux-highlight';
+            span.dataset.highlightId = id;
+            range.surroundContents(span);
+            span.addEventListener('click', () => {
+                window.webkit.messageHandlers.highlightTapped.postMessage(id);
+            });
+            this.highlights.set(id, [span]);
+            return true;
+        }
+
+        const walker = document.createTreeWalker(
+            range.commonAncestorContainer,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+        const textNodes = [];
+        let started = false;
+        let n;
+        while (n = walker.nextNode()) {
+            if (n === range.startContainer) started = true;
+            if (started) textNodes.push(n);
+            if (n === range.endContainer) break;
+        }
+
+        const elements = [];
+        for (let i = 0; i < textNodes.length; i++) {
+            const textNode = textNodes[i];
+            const start = (i === 0) ? range.startOffset : 0;
+            const end = (i === textNodes.length - 1) ? range.endOffset : textNode.textContent.length;
+            if (start >= end) continue;
+
+            const before = textNode.textContent.substring(0, start);
+            const middle = textNode.textContent.substring(start, end);
+            const after = textNode.textContent.substring(end);
+
+            const frag = document.createDocumentFragment();
+            if (before) frag.appendChild(document.createTextNode(before));
+            const span = document.createElement('span');
+            span.className = 'crux-highlight';
+            span.dataset.highlightId = id;
+            span.textContent = middle;
+            span.addEventListener('click', () => {
+                window.webkit.messageHandlers.highlightTapped.postMessage(id);
+            });
+            frag.appendChild(span);
+            if (after) frag.appendChild(document.createTextNode(after));
+            textNode.parentNode.replaceChild(frag, textNode);
+            elements.push(span);
+        }
+        if (elements.length === 0) return false;
+        this.highlights.set(id, elements);
+        return true;
     },
 
     applyHighlights: function(highlightsArray) {

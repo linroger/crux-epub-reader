@@ -99,10 +99,18 @@ actor OllamaProvider: AIProvider {
         for message in conversationHistory {
             messages.append(["role": message.role.rawValue, "content": message.content])
         }
-        messages.append([
+        var userMessage: [String: Any] = [
             "role": "user",
             "content": buildUserMessage(selectedText: selection, context: context)
-        ])
+        ]
+        // Ollama's chat API takes images as an `images` array of raw base64
+        // strings (no data-URI prefix) on the message itself. Only inline
+        // data URIs can be forwarded; remote URLs are skipped.
+        let base64Images = options.images.compactMap { $0.base64Components?.data }
+        if !base64Images.isEmpty {
+            userMessage["images"] = base64Images
+        }
+        messages.append(userMessage)
 
         let temperature: Double = options.temperature ?? 0.7
         let ollamaOptions: [String: Any] = [

@@ -129,10 +129,23 @@ actor CustomProvider: AIProvider {
 
         // Add new user message with context
         let userMessage = buildUserMessage(selectedText: selectedText, context: context)
-        messages.append([
-            "role": "user",
-            "content": userMessage
-        ])
+        if options.images.isEmpty {
+            messages.append([
+                "role": "user",
+                "content": userMessage
+            ])
+        } else {
+            // OpenAI-compatible multimodal content. Custom endpoints that
+            // mirror the OpenAI schema accept `image_url` with data URIs.
+            var parts: [[String: Any]] = [["type": "text", "text": userMessage]]
+            for image in options.images {
+                parts.append(["type": "image_url", "image_url": ["url": image.url]])
+            }
+            messages.append([
+                "role": "user",
+                "content": parts
+            ])
+        }
 
         // Build request body (OpenAI-compatible format)
         var body: [String: Any] = [

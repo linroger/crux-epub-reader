@@ -42,7 +42,7 @@ actor ClaudeProvider: AIProvider {
             customSystemPrompt: options.systemPrompt
         )
 
-        let request = try buildRequest(prompt: prompt, conversationHistory: conversationHistory, temperature: options.temperature)
+        let request = try buildRequest(prompt: prompt, conversationHistory: conversationHistory, temperature: options.temperature, images: options.images)
 
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
@@ -125,7 +125,8 @@ actor ClaudeProvider: AIProvider {
     private func buildRequest(
         prompt: String,
         conversationHistory: [ThreadMessage],
-        temperature: Double? = nil
+        temperature: Double? = nil,
+        images: [AIImageAttachment] = []
     ) throws -> URLRequest {
         guard let url = URL(string: baseURL) else {
             throw AIProviderError.invalidBaseURL
@@ -149,11 +150,39 @@ actor ClaudeProvider: AIProvider {
             ])
         }
 
-        // Add new user message
-        messages.append([
-            "role": "user",
-            "content": prompt
-        ])
+        // Add new user message. With images, Anthropic expects a content
+        // array of typed blocks: image blocks first, then the text block.
+        if images.isEmpty {
+            messages.append([
+                "role": "user",
+                "content": prompt
+            ])
+        } else {
+            var blocks: [[String: Any]] = []
+            for image in images {
+                if let parts = image.base64Components {
+                    blocks.append([
+                        "type": "image",
+                        "source": [
+                            "type": "base64",
+                            "media_type": parts.mediaType,
+                            "data": parts.data
+                        ]
+                    ])
+                } else if !image.isDataURI {
+                    // Remote URL source (Anthropic supports url image sources).
+                    blocks.append([
+                        "type": "image",
+                        "source": ["type": "url", "url": image.url]
+                    ])
+                }
+            }
+            blocks.append(["type": "text", "text": prompt])
+            messages.append([
+                "role": "user",
+                "content": blocks
+            ])
+        }
 
         var body: [String: Any] = [
             "model": model,
@@ -199,7 +228,7 @@ actor ClaudeProvider: AIProvider {
             conversationHistory: conversationHistory,
             customSystemPrompt: options.systemPrompt
         )
-        var request = try buildRequest(prompt: prompt, conversationHistory: conversationHistory, temperature: options.temperature)
+        var request = try buildRequest(prompt: prompt, conversationHistory: conversationHistory, temperature: options.temperature, images: options.images)
         if let oldBody = request.httpBody,
            var json = try? JSONSerialization.jsonObject(with: oldBody) as? [String: Any] {
             json["stream"] = true
