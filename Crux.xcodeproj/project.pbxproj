@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -120,6 +120,8 @@
 		8805D256AC6B623883D45353 /* AnnotationExportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2494A33F8572173344C3AB93 /* AnnotationExportView.swift */; };
 		899D4B537DA7523740967EB3 /* LibraryBackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC3EE36E9E9087EE88DD7148 /* LibraryBackupService.swift */; };
 		89AEDE9570E0A8FBAD889028 /* reader.css in Resources */ = {isa = PBXBuildFile; fileRef = EC24A21BACE84169363F5313 /* reader.css */; };
+		AECA7A10000000000000B001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AECA7A10000000000000A551 /* Assets.xcassets */; };
+		AECA7A10000000000000B002 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AECA7A10000000000000A551 /* Assets.xcassets */; };
 		89F18E008ED4AF610BA31605 /* LiquidGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69FA7F29D46C547DC2DBDBEB /* LiquidGlass.swift */; };
 		8B43712FF14CA117B50BA0B5 /* SearchHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = C55C978784489B8CBDCC7F48 /* SearchHistory.swift */; };
 		8B4FE9209BD9CDEEF19A1220 /* CustomProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3309FFE628D0B5C028B7B675 /* CustomProvider.swift */; };
@@ -259,12 +261,12 @@
 		378B4A32655676535AA28300 /* Date+Relative.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+Relative.swift"; sourceTree = "<group>"; };
 		379FB0CD63F15C913683A31B /* ReadingStreaks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingStreaks.swift; sourceTree = "<group>"; };
 		388CDD22DC75A3DCC5DFA0C7 /* BookmarksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarksView.swift; sourceTree = "<group>"; };
-		399FBD24C2F3E43B5E3C5F7C /* .gitkeep */ = {isa = PBXFileReference; path = .gitkeep; sourceTree = "<group>"; };
+		399FBD24C2F3E43B5E3C5F7C /* .gitkeep */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitkeep; sourceTree = "<group>"; };
 		404D74B8AEA1EF68C8A11FAB /* ReaderPositionUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderPositionUITests.swift; sourceTree = "<group>"; };
 		439864496E040E5FB05FE6DD /* HTMLTextExtractorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLTextExtractorTests.swift; sourceTree = "<group>"; };
 		44535FA2CD4727FF665852EB /* OpenAIProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIProvider.swift; sourceTree = "<group>"; };
 		468A81A3E599A1B8D192F53A /* SearchState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchState.swift; sourceTree = "<group>"; };
-		4C81788BB965DCB399E50B52 /* .gitkeep */ = {isa = PBXFileReference; path = .gitkeep; sourceTree = "<group>"; };
+		4C81788BB965DCB399E50B52 /* .gitkeep */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitkeep; sourceTree = "<group>"; };
 		501099F465AFF4BA5C12D0DA /* ThreadPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadPanel.swift; sourceTree = "<group>"; };
 		5B00C0280A9B0342C485872F /* CruxTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CruxTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5CF5DA233D0517FF59E1D1A7 /* ReadingGoals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingGoals.swift; sourceTree = "<group>"; };
@@ -313,7 +315,7 @@
 		C55C978784489B8CBDCC7F48 /* SearchHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchHistory.swift; sourceTree = "<group>"; };
 		C7FEB0A71B66FE710259B5C5 /* TTSControlPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TTSControlPanel.swift; sourceTree = "<group>"; };
 		C8E8A977B48817B42D5E1847 /* CitationFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CitationFormatter.swift; sourceTree = "<group>"; };
-		CA493534A239F527BE87B782 /* Crux.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Crux.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CA493534A239F527BE87B782 /* Crux.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Crux.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE2367A38B8BBA156AB7BE64 /* InlineSearchBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineSearchBar.swift; sourceTree = "<group>"; };
 		CEE6900864E47C63A0C0358E /* NoteTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteTemplate.swift; sourceTree = "<group>"; };
 		D37894433A42D11840B50F12 /* SpotlightIndexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightIndexer.swift; sourceTree = "<group>"; };
@@ -327,6 +329,7 @@
 		E91ADC6B3192DBF8B60EE306 /* ErrorHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorHandler.swift; sourceTree = "<group>"; };
 		E9C3A77377276416CFDF0D81 /* AnnotationExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationExportService.swift; sourceTree = "<group>"; };
 		EC24A21BACE84169363F5313 /* reader.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = reader.css; sourceTree = "<group>"; };
+		AECA7A10000000000000A551 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
 		ED2CBCC86BCE9C71088F8CC3 /* EPUBWebViewRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPUBWebViewRepresentable.swift; sourceTree = "<group>"; };
 		EEAC255D5D7A619273FE4B85 /* BookSearchIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookSearchIndex.swift; sourceTree = "<group>"; };
 		F045E2A9F3307E70E9F8F6BB /* HighlightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HighlightsView.swift; sourceTree = "<group>"; };
@@ -394,6 +397,7 @@
 				7E9CE822509E527A35776B64 /* iOS */,
 				83315399B5FD942D2313059A /* macOS */,
 				049655036CFE473C3ECCB059 /* Reader */,
+				AECA7A10000000000000A551 /* Assets.xcassets */,
 				80FD286E9537A0E80954DD26 /* Shared */,
 				7343A495A0B295FF5B1F82D0 /* Tests */,
 				433DEDA54E1D0908228C1C7D /* UITests */,
@@ -693,9 +697,6 @@
 					A96704F5A651CE736FAD3606 = {
 						DevelopmentTeam = "";
 					};
-					E9EC2F1EEDA3BDED94F53A68 = {
-						DevelopmentTeam = "";
-					};
 				};
 			};
 			buildConfigurationList = 0D94C4ECF807903AA66EC4CA /* Build configuration list for PBXProject "Crux" */;
@@ -711,7 +712,6 @@
 			packageReferences = (
 				AA2DE1D98901D255123FC975 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
 			);
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -733,6 +733,7 @@
 				5E464FD057EB82E2517FD93E /* margin-notes.js in Resources */,
 				A3B91CE0EAB6FDF03BC86597 /* reader-template.html in Resources */,
 				BEC827A52FCA9E82F6B01781 /* reader.css in Resources */,
+				AECA7A10000000000000B001 /* Assets.xcassets in Resources */,
 				19AA2D21308A869BF17F2F3C /* search.js in Resources */,
 				A174F53BCCC34CD102A25A59 /* selection-ios.js in Resources */,
 				E0684A1008748BDB4D91F840 /* selection-macos.js in Resources */,
@@ -749,6 +750,7 @@
 				CE5A900A9EBE3EEC8C4CEF9C /* margin-notes.js in Resources */,
 				90FCBBCB0F77B6737F22FABA /* reader-template.html in Resources */,
 				89AEDE9570E0A8FBAD889028 /* reader.css in Resources */,
+				AECA7A10000000000000B002 /* Assets.xcassets in Resources */,
 				ABFC37503C01172D7BE5F3D3 /* search.js in Resources */,
 				B662E8BA016D50312ADB068F /* selection-ios.js in Resources */,
 				E78F52D479392B2FB4B14CC8 /* selection-macos.js in Resources */,
@@ -991,12 +993,13 @@
 				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = Resources/Crux.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = X8AD8YC886;
 				INFOPLIST_FILE = Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.crux.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.crux.app1;
 				PRODUCT_NAME = Crux;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
@@ -1011,6 +1014,21 @@
 				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = Resources/Crux.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_FILE_ACCESS_DOWNLOADS_FOLDER = readwrite;
+				ENABLE_FILE_ACCESS_MOVIES_FOLDER = readwrite;
+				ENABLE_FILE_ACCESS_MUSIC_FOLDER = readwrite;
+				ENABLE_FILE_ACCESS_PICTURE_FOLDER = readwrite;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = YES;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
 				INFOPLIST_FILE = Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1030,6 +1048,21 @@
 				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = Resources/Crux.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_FILE_ACCESS_DOWNLOADS_FOLDER = readwrite;
+				ENABLE_FILE_ACCESS_MOVIES_FOLDER = readwrite;
+				ENABLE_FILE_ACCESS_MUSIC_FOLDER = readwrite;
+				ENABLE_FILE_ACCESS_PICTURE_FOLDER = readwrite;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = YES;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
 				INFOPLIST_FILE = Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1181,12 +1214,13 @@
 				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = Resources/Crux.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = X8AD8YC886;
 				INFOPLIST_FILE = Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.crux.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.crux.app1;
 				PRODUCT_NAME = Crux;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;

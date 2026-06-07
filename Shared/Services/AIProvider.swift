@@ -192,7 +192,7 @@ actor AIProviderFactory {
                 model: config.model
             )
 
-        case .deepseek, .minimax, .kimi:
+        case .deepseek, .minimax, .kimi, .qwen:
             // OpenAI-compatible cloud APIs — reuse the OpenAI client with the
             // provider's endpoint and default model.
             return OpenAIProvider(
@@ -279,7 +279,7 @@ actor AIProviderFactory {
                 model: config.model
             )
 
-        case .deepseek, .minimax, .kimi:
+        case .deepseek, .minimax, .kimi, .qwen:
             guard !apiKey.isEmpty else {
                 throw AIProviderError.missingAPIKey
             }

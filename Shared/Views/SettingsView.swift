@@ -343,6 +343,33 @@ struct AIProvidersSettingsView: View {
 
 /// Small chip used in the AI Providers empty-state to one-click add a
 /// default-configured local or on-device provider.
+/// Renders a provider's brand mark from the bundled asset catalog, falling
+/// back to its SF Symbol when no brand icon is available (e.g. Custom).
+struct ProviderIcon: View {
+    let type: ProviderType
+    var size: CGFloat = 20
+
+    var body: some View {
+        Group {
+            if let asset = type.iconAssetName {
+                Image(asset)
+                    .resizable()
+                    .renderingMode(.original)
+                    .aspectRatio(contentMode: .fit)
+            } else {
+                Image(systemName: type.symbolName)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.tint)
+                    .padding(size * 0.08)
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
 struct QuickAddProviderChip: View {
     let type: ProviderType
     let action: () -> Void
@@ -350,10 +377,7 @@ struct QuickAddProviderChip: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: 8) {
-                Image(systemName: type.symbolName)
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(.tint)
-                    .symbolRenderingMode(.hierarchical)
+                ProviderIcon(type: type, size: 28)
                 Text(type.displayName)
                     .font(.subheadline)
                     .fontWeight(.medium)
@@ -389,10 +413,7 @@ struct ProviderRow: View {
                     .fill(provider.isActive ? Color.green.opacity(0.15) : Color.secondary.opacity(0.1))
                     .frame(width: 40, height: 40)
 
-                Image(systemName: provider.providerType.symbolName)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(provider.isActive ? .green : .secondary)
-                    .symbolRenderingMode(.hierarchical)
+                ProviderIcon(type: provider.providerType, size: 22)
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -504,8 +525,7 @@ struct ProviderEditView: View {
                     Picker("Type", selection: $providerType) {
                         ForEach(ProviderType.allCases) { type in
                             HStack(spacing: 8) {
-                                Image(systemName: type.symbolName)
-                                    .foregroundStyle(.secondary)
+                                ProviderIcon(type: type, size: 20)
                                 VStack(alignment: .leading) {
                                     Text(type.displayName)
                                     Text(type.subtitle)
@@ -631,16 +651,54 @@ struct ProviderEditView: View {
                         .textInputAutocapitalization(.never)
                         #endif
 
-                        if !providerType.defaultModels.isEmpty {
-                            Menu {
-                                ForEach(providerType.defaultModels, id: \.self) { modelName in
-                                    Button(modelName) { model = modelName }
+                        HStack {
+                            if !providerType.defaultModels.isEmpty {
+                                Menu {
+                                    ForEach(providerType.defaultModels, id: \.self) { modelName in
+                                        Button(modelName) { model = modelName }
+                                    }
+                                } label: {
+                                    Label("Suggested models", systemImage: "list.bullet")
+                                        .font(.caption)
                                 }
-                            } label: {
-                                Label("Suggested models", systemImage: "list.bullet")
-                                    .font(.caption)
+                            }
+
+                            // Pull the live model list straight from the
+                            // provider's API (requires the key).
+                            if providerType.canListRemoteModels {
+                                Spacer()
+                                Button {
+                                    Task { await refreshRemoteModels() }
+                                } label: {
+                                    if discoveryStatus == .loading {
+                                        HStack(spacing: 6) {
+                                            ProgressView().scaleEffect(0.7)
+                                            Text("Fetching…")
+                                        }
+                                    } else {
+                                        Label("Fetch from API", systemImage: "arrow.down.circle")
+                                            .font(.caption)
+                                    }
+                                }
+                                .buttonStyle(.borderless)
+                                .controlSize(.small)
+                                .disabled(apiKey.isEmpty || discoveryStatus == .loading)
                             }
                         }
+
+                        if !discoveredModels.isEmpty {
+                            Picker(selection: $model) {
+                                ForEach(discoveredModels) { discovered in
+                                    Text(discovered.displayName).tag(discovered.id)
+                                }
+                            } label: {
+                                Text("Models from API")
+                            }
+                            .pickerStyle(.menu)
+                            .accessibilityHint("Pick from \(discoveredModels.count) models reported by the API")
+                        }
+
+                        discoveryStatusFooter
                     }
                 }
 
@@ -790,7 +848,7 @@ struct ProviderEditView: View {
         case .loading:
             EmptyView() // already indicated next to the refresh button
         case .loaded(let count):
-            Label("Found \(count) installed model\(count == 1 ? "" : "s").", systemImage: "checkmark.circle.fill")
+            Label("Found \(count) model\(count == 1 ? "" : "s").", systemImage: "checkmark.circle.fill")
                 .font(.caption)
                 .foregroundStyle(.green)
         case .empty:
@@ -852,6 +910,32 @@ struct ProviderEditView: View {
             default:
                 discoveryStatus = .failed(message: error.localizedDescription)
             }
+        } catch {
+            discoveryStatus = .failed(message: error.localizedDescription)
+        }
+    }
+
+    /// Pulls the latest models from a cloud provider's `/models` endpoint.
+    private func refreshRemoteModels() async {
+        discoveryStatus = .loading
+        do {
+            let models = try await providerManager.discoverRemoteModels(
+                type: providerType,
+                baseURL: baseURL.isEmpty ? nil : baseURL,
+                apiKey: apiKey
+            )
+            discoveredModels = models
+            if models.isEmpty {
+                discoveryStatus = .empty
+            } else {
+                discoveryStatus = .loaded(count: models.count)
+                // Only auto-select when the user hasn't typed/chosen a model.
+                if model.isEmpty {
+                    model = models.first?.id ?? model
+                }
+            }
+        } catch let error as AIProviderError {
+            discoveryStatus = .failed(message: error.errorDescription ?? "Couldn't fetch models from the API.")
         } catch {
             discoveryStatus = .failed(message: error.localizedDescription)
         }
@@ -969,6 +1053,14 @@ struct ProviderEditView: View {
                     )
 
                     try providerManager.createProvider(newProvider)
+
+                    // The initializer kicks off a best-effort Keychain save,
+                    // but persist the key explicitly (and awaited) so it's
+                    // guaranteed stored before we dismiss — and so a Keychain
+                    // failure surfaces instead of silently losing the key.
+                    if providerType.requiresAPIKey {
+                        try await newProvider.setAPIKey(apiKey)
+                    }
 
                     if isActive {
                         try await providerManager.setActiveProviderAsync(newProvider)

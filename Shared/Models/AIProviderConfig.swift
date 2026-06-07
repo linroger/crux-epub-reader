@@ -193,6 +193,7 @@ enum ProviderType: String, CaseIterable, Identifiable, Codable {
     case deepseek = "deepseek"
     case minimax = "minimax"
     case kimi = "kimi"
+    case qwen = "qwen"
     case custom = "custom"
 
     var id: String { rawValue }
@@ -207,6 +208,7 @@ enum ProviderType: String, CaseIterable, Identifiable, Codable {
         case .deepseek: return "DeepSeek"
         case .minimax: return "MiniMax"
         case .kimi: return "Kimi (Moonshot)"
+        case .qwen: return "Qwen (Alibaba)"
         case .custom: return "Custom Provider"
         }
     }
@@ -222,6 +224,7 @@ enum ProviderType: String, CaseIterable, Identifiable, Codable {
         case .deepseek: return "DeepSeek API · cloud"
         case .minimax: return "MiniMax API · cloud"
         case .kimi: return "Moonshot AI · cloud"
+        case .qwen: return "Alibaba DashScope · cloud"
         case .custom: return "Any OpenAI-compatible endpoint"
         }
     }
@@ -236,6 +239,7 @@ enum ProviderType: String, CaseIterable, Identifiable, Codable {
         case .deepseek: return "https://api.deepseek.com/v1/chat/completions"
         case .minimax: return "https://api.minimax.io/v1/text/chatcompletion_v2"
         case .kimi: return "https://api.moonshot.ai/v1/chat/completions"
+        case .qwen: return "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions"
         case .custom: return nil
         }
     }
@@ -289,6 +293,14 @@ enum ProviderType: String, CaseIterable, Identifiable, Codable {
                 "moonshot-v1-32k",
                 "moonshot-v1-8k"
             ]
+        case .qwen:
+            return [
+                "qwen-plus",
+                "qwen-max",
+                "qwen-turbo",
+                "qwen-max-latest",
+                "qwen2.5-72b-instruct"
+            ]
         case .custom:
             return []
         }
@@ -318,6 +330,17 @@ enum ProviderType: String, CaseIterable, Identifiable, Codable {
         }
     }
 
+    /// True when the provider exposes an OpenAI-/Anthropic-style `/models`
+    /// listing endpoint we can query to pull the latest available models.
+    /// Excludes local providers (handled by `supportsModelDiscovery`),
+    /// Apple Intelligence (on-device), and MiniMax (non-standard endpoint).
+    var canListRemoteModels: Bool {
+        switch self {
+        case .openai, .claude, .deepseek, .kimi, .qwen, .custom: return true
+        default: return false
+        }
+    }
+
     var supportsStreaming: Bool {
         true // All providers support streaming
     }
@@ -333,7 +356,26 @@ enum ProviderType: String, CaseIterable, Identifiable, Codable {
         case .deepseek: return "magnifyingglass.circle"
         case .minimax: return "waveform.circle"
         case .kimi: return "moon.stars"
+        case .qwen: return "character.bubble"
         case .custom: return "puzzlepiece.extension"
+        }
+    }
+
+    /// Brand icon asset name bundled in `Assets.xcassets`. Returns `nil` for
+    /// providers without a bundled brand mark, so the UI falls back to
+    /// `symbolName` (an SF Symbol).
+    var iconAssetName: String? {
+        switch self {
+        case .claude: return "ai-claude"
+        case .openai: return "ai-openai"
+        case .appleIntelligence: return "ai-apple"
+        case .ollama: return "ai-ollama"
+        case .lmstudio: return "ai-lmstudio"
+        case .deepseek: return "ai-deepseek"
+        case .minimax: return "ai-minimax"
+        case .kimi: return "ai-kimi"
+        case .qwen: return "ai-qwen"
+        case .custom: return nil
         }
     }
 }
@@ -458,6 +500,20 @@ extension AIProviderConfig {
             type: .kimi,
             apiKey: apiKey,
             baseURL: ProviderType.kimi.defaultBaseURL,
+            model: model,
+            isActive: false
+        )
+    }
+
+    /// Create a Qwen (Alibaba DashScope) provider configuration.
+    /// DashScope's OpenAI-compatible endpoint, so it routes through the
+    /// shared OpenAI-compatible provider.
+    static func createQwen(apiKey: String, model: String = "qwen-plus") -> AIProviderConfig {
+        AIProviderConfig(
+            name: "Qwen (Alibaba)",
+            type: .qwen,
+            apiKey: apiKey,
+            baseURL: ProviderType.qwen.defaultBaseURL,
             model: model,
             isActive: false
         )

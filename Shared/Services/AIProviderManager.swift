@@ -205,6 +205,17 @@ final class AIProviderManager {
         return try await LocalModelDiscovery.models(for: config.providerType, baseURL: baseURL)
     }
 
+    /// Pull the latest available models from a cloud provider's `/models`
+    /// endpoint (OpenAI/Anthropic/DashScope-compatible). Requires the API key
+    /// since these endpoints are authenticated. Returns an empty array for
+    /// provider types that don't expose a listing endpoint.
+    func discoverRemoteModels(type: ProviderType, baseURL: String?, apiKey: String) async throws -> [DiscoveredModel] {
+        guard type.canListRemoteModels else { return [] }
+        let resolved = (baseURL?.isEmpty == false ? baseURL : nil) ?? type.defaultBaseURL ?? ""
+        guard !resolved.isEmpty else { throw AIProviderError.invalidBaseURL }
+        return try await LocalModelDiscovery.remoteModels(for: type, baseURL: resolved, apiKey: apiKey)
+    }
+
     /// Generate response using the active provider.
     ///
     /// Transient failures (network drops, 5xx, rate limits) are retried with
