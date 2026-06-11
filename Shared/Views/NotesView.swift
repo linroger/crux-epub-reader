@@ -147,7 +147,7 @@ struct NotesView: View {
         .padding()
         .background(
             LinearGradient(
-                colors: [Color(.controlBackgroundColor), Color(.controlBackgroundColor).opacity(0.8)],
+                colors: [Color.cruxControlBackground, Color.cruxControlBackground.opacity(0.8)],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -178,7 +178,7 @@ struct NotesView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .background(Color(.windowBackgroundColor).opacity(0.5))
+        .background(Color.cruxWindowBackground.opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
@@ -308,7 +308,7 @@ struct NotesView: View {
                 .padding()
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(.controlBackgroundColor))
+                        .fill(Color.cruxControlBackground)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
@@ -558,7 +558,7 @@ struct NoteHighlightListRow: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(isHovered ? Color(.controlBackgroundColor) : Color.clear)
+                .fill(isHovered ? Color.cruxControlBackground : Color.clear)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8)
@@ -629,6 +629,17 @@ struct AnnotationEditView: View {
         self.onSave = onSave
     }
 
+    /// Insert a template scaffold into the note. Appends to existing text
+    /// (separated by a blank line) so users can stack templates rather
+    /// than overwriting their progress.
+    private func insertTemplate(_ template: NoteTemplate) {
+        if annotation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            annotation = template.body
+        } else {
+            annotation += "\n\n" + template.body
+        }
+    }
+
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
@@ -647,9 +658,32 @@ struct AnnotationEditView: View {
 
                 // Annotation editor
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Your Note")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    HStack {
+                        Text("Your Note")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Spacer()
+
+                        // Template menu — inserts a scaffold for common
+                        // note types. Picked from a menu so users who
+                        // don't want one just keep typing.
+                        Menu {
+                            ForEach(NoteTemplate.allCases) { template in
+                                Button {
+                                    insertTemplate(template)
+                                } label: {
+                                    Label(template.displayName, systemImage: template.symbolName)
+                                }
+                            }
+                        } label: {
+                            Label("Templates", systemImage: "doc.on.doc")
+                                .labelStyle(.titleAndIcon)
+                        }
+                        .menuStyle(.borderlessButton)
+                        .controlSize(.small)
+                        .fixedSize()
+                    }
 
                     TextEditor(text: $annotation)
                         .font(.body)
@@ -721,7 +755,12 @@ struct ExportSheet: View {
                             Text(format.rawValue).tag(format)
                         }
                     }
+                    // `.radioGroup` is macOS-only; iOS uses segmented.
+                    #if os(macOS)
                     .pickerStyle(.radioGroup)
+                    #else
+                    .pickerStyle(.segmented)
+                    #endif
                 }
 
                 // Format descriptions

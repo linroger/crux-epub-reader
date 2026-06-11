@@ -1,6 +1,9 @@
 import SwiftUI
 import SwiftData
 
+// Note: Liquid Glass / Materials modifiers live in `LiquidGlass.swift`
+// (cruxGlassCard, cruxScrollEdgeSoft, cruxGlassButton, etc).
+
 // MARK: - Main Library View (full screen)
 
 enum LibrarySortOption: String, CaseIterable, Identifiable {
@@ -79,6 +82,11 @@ struct LibraryMainView: View {
     #if os(iOS)
     @State private var showingSettings = false
     @State private var showingNotes = false
+    // iOS has no multi-window scenes, so the reading-data screens that
+    // macOS opens as windows are presented as sheets from the library.
+    @State private var showingStatistics = false
+    @State private var showingGoals = false
+    @State private var showingStreaks = false
     #endif
 
     // Book details state
@@ -90,6 +98,13 @@ struct LibraryMainView: View {
 
     // Drag & drop state
     @State private var isDropTargeted = false
+
+    // Multi-file import progress — drives the BatchImportProgress overlay
+    // when the user drops more than one EPUB. The keys are user-friendly
+    // file names; values are per-file progress so the sheet can update
+    // each line independently.
+    @State private var batchImportProgress: [BatchImportItem] = []
+    @State private var isBatchImportActive: Bool = false
 
     // Batch operations state
     @State private var isSelectionMode = false
@@ -158,11 +173,13 @@ struct LibraryMainView: View {
     }
 
     private var recentBooks: [StoredBook] {
+        // Show every in-progress book ordered by recency. The Recent shelf
+        // is a horizontal scroller (see RecentBooksSection), so there's no
+        // need to cap the count — all books the reader has opened and not
+        // yet finished remain one swipe away.
         storedBooks
             .filter { $0.lastOpenedAt != nil && !$0.isFinished }
             .sorted { ($0.lastOpenedAt ?? .distantPast) > ($1.lastOpenedAt ?? .distantPast) }
-            .prefix(5)
-            .map { $0 }
     }
 
     private var sortedAndFilteredBooks: [StoredBook] {
@@ -323,6 +340,10 @@ struct LibraryMainView: View {
                         allTags: allTags
                     )
                 }
+                // Backup/restore uses macOS file panels (NSOpenPanel); the
+                // trigger menu and performRestore() are macOS-only, so this
+                // presenting sheet is gated to match.
+                #if os(macOS)
                 .sheet(isPresented: $showingRestoreStrategyPicker) {
                     RestoreStrategyPickerSheet(
                         selectedStrategy: $selectedMergeStrategy,
@@ -331,12 +352,22 @@ struct LibraryMainView: View {
                         }
                     )
                 }
+                #endif
                 #if os(iOS)
                 .sheet(isPresented: $showingSettings) {
                     iOSSettingsView()
                 }
                 .sheet(isPresented: $showingNotes) {
                     NotesView()
+                }
+                .sheet(isPresented: $showingStatistics) {
+                    StatisticsView()
+                }
+                .sheet(isPresented: $showingGoals) {
+                    ReadingGoalsView()
+                }
+                .sheet(isPresented: $showingStreaks) {
+                    StreaksView()
                 }
                 #endif
                 .confirmationDialog(
@@ -405,6 +436,16 @@ struct LibraryMainView: View {
             handleDrop(providers: providers)
         }
         .overlay {
+            // Batch import progress sheet (only shown for 2+ files)
+            if isBatchImportActive && !batchImportProgress.isEmpty {
+                Color.black.opacity(0.18)
+                    .ignoresSafeArea()
+                BatchImportProgressView(items: batchImportProgress)
+                    .transition(.scale(scale: 0.96).combined(with: .opacity))
+            }
+        }
+        .animation(.easeOut(duration: 0.18), value: isBatchImportActive)
+        .overlay {
             // Drop target indicator
             if isDropTargeted {
                 RoundedRectangle(cornerRadius: 12)
@@ -432,6 +473,9 @@ struct LibraryMainView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+        #if os(iOS)
+        iOSToolbarContent
+        #else
         ToolbarItemGroup(placement: .automatic) {
             // Batch operations toolbar (when in selection mode)
             if isSelectionMode {
@@ -440,7 +484,253 @@ struct LibraryMainView: View {
                 normalToolbar
             }
         }
+        #endif
     }
+
+    #if os(iOS)
+    /// iPhone/iPad nav bars can't spread a dozen controls the way a macOS
+    /// window toolbar can — they'd crowd or clip. Instead the primary
+    /// action (Add Book) stays a direct button and everything else folds
+    /// into a single overflow menu, the native iOS pattern. This menu is
+    /// also where the reading-data screens (Notes, Statistics, Goals,
+    /// Streaks) and Settings live, since iOS has no app menu bar.
+    @ToolbarContentBuilder
+    private var iOSToolbarContent: some ToolbarContent {
+        if isSelectionMode {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Done") {
+                    isSelectionMode = false
+                    selectedBooks.removeAll()
+                }
+                .fontWeight(.semibold)
+            }
+            ToolbarItem(placement: .principal) {
+                Text("\(selectedBooks.count) selected")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                iOSSelectionMenu
+            }
+        } else {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: onAddBook) {
+                    Label("Add Book", systemImage: "plus")
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                iOSLibraryMenu
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var iOSSelectionMenu: some View {
+        Menu {
+            Button {
+                if selectedBooks.count == sortedAndFilteredBooks.count {
+                    selectedBooks.removeAll()
+                } else {
+                    selectedBooks = Set(sortedAndFilteredBooks.map { $0.id })
+                }
+            } label: {
+                Label(
+                    selectedBooks.count == sortedAndFilteredBooks.count ? "Deselect All" : "Select All",
+                    systemImage: selectedBooks.count == sortedAndFilteredBooks.count ? "checkmark.circle.fill" : "circle"
+                )
+            }
+            .disabled(sortedAndFilteredBooks.isEmpty)
+
+            if !selectedBooks.isEmpty {
+                Divider()
+                if !collections.isEmpty {
+                    Button {
+                        showingBatchCollectionPicker = true
+                    } label: {
+                        Label("Add to Collection", systemImage: "folder.badge.plus")
+                    }
+                }
+                Button {
+                    showingBatchStatusPicker = true
+                } label: {
+                    Label("Change Status", systemImage: "book.circle")
+                }
+                Button(role: .destructive) {
+                    showingBatchDeleteConfirmation = true
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+        } label: {
+            Label("Actions", systemImage: "ellipsis.circle")
+        }
+        .disabled(sortedAndFilteredBooks.isEmpty)
+    }
+
+    @ViewBuilder
+    private var iOSLibraryMenu: some View {
+        Menu {
+            // Library view & organisation
+            if !storedBooks.isEmpty {
+                Button {
+                    isSelectionMode = true
+                } label: {
+                    Label("Select Books", systemImage: "checkmark.circle")
+                }
+            }
+
+            Button {
+                viewMode = viewMode == .list ? .grid : .list
+            } label: {
+                Label(
+                    viewMode == .list ? "Grid View" : "List View",
+                    systemImage: viewMode == .list ? "square.grid.2x2" : "list.bullet"
+                )
+            }
+
+            Menu {
+                Picker("Sort By", selection: $sortOption) {
+                    ForEach(LibrarySortOption.allCases) { option in
+                        Label(option.rawValue, systemImage: option.systemImage)
+                            .tag(option)
+                    }
+                }
+                Divider()
+                Button {
+                    sortAscending.toggle()
+                } label: {
+                    Label(
+                        sortAscending ? "Ascending" : "Descending",
+                        systemImage: sortAscending ? "arrow.up" : "arrow.down"
+                    )
+                }
+            } label: {
+                Label("Sort: \(sortOption.rawValue)", systemImage: "arrow.up.arrow.down")
+            }
+
+            Menu {
+                Picker("Status", selection: $readingStatusFilter) {
+                    ForEach(ReadingStatusFilter.allCases) { status in
+                        Label(status.rawValue, systemImage: status.systemImage)
+                            .tag(status)
+                    }
+                }
+            } label: {
+                Label("Filter: Status", systemImage: readingStatusFilter.systemImage)
+            }
+
+            if !uniqueAuthors.isEmpty {
+                Menu {
+                    Button {
+                        selectedAuthor = nil
+                    } label: {
+                        Label("All Authors", systemImage: "person.2")
+                    }
+                    Divider()
+                    ForEach(uniqueAuthors, id: \.self) { author in
+                        Button {
+                            selectedAuthor = author
+                        } label: {
+                            if selectedAuthor == author {
+                                Label(author, systemImage: "checkmark")
+                            } else {
+                                Text(author)
+                            }
+                        }
+                    }
+                } label: {
+                    Label(selectedAuthor ?? "Filter: Author", systemImage: "person")
+                }
+            }
+
+            if !collections.isEmpty {
+                Menu {
+                    Button {
+                        selectedCollection = nil
+                    } label: {
+                        Label("All Collections", systemImage: "folder")
+                    }
+                    Divider()
+                    ForEach(collections) { collection in
+                        Button {
+                            selectedCollection = collection
+                        } label: {
+                            if selectedCollection?.id == collection.id {
+                                Label(collection.name, systemImage: "checkmark")
+                            } else {
+                                Label(collection.name, systemImage: collection.icon)
+                            }
+                        }
+                    }
+                } label: {
+                    Label(selectedCollection?.name ?? "Filter: Collection", systemImage: "folder")
+                }
+            }
+
+            Button {
+                showingAdvancedFilters = true
+            } label: {
+                Label(hasAdvancedFilters ? "Advanced Filters •" : "Advanced Filters",
+                      systemImage: "line.3.horizontal.decrease.circle")
+            }
+
+            if hasActiveFilters {
+                Button(role: .destructive) {
+                    selectedAuthor = nil
+                    readingStatusFilter = .all
+                    selectedCollection = nil
+                    yearRangeMin = ""
+                    yearRangeMax = ""
+                    selectedLanguage = nil
+                    selectedPublisher = nil
+                    selectedSubjects.removeAll()
+                    selectedTags.removeAll()
+                } label: {
+                    Label("Clear Filters", systemImage: "xmark.circle")
+                }
+            }
+
+            // Library data & app sections
+            Section {
+                Button {
+                    showingCollections = true
+                } label: {
+                    Label("Collections", systemImage: "folder.badge.gearshape")
+                }
+                Button {
+                    showingNotes = true
+                } label: {
+                    Label("Notes & Highlights", systemImage: "note.text")
+                }
+                Button {
+                    showingStatistics = true
+                } label: {
+                    Label("Reading Statistics", systemImage: "chart.bar.xaxis")
+                }
+                Button {
+                    showingGoals = true
+                } label: {
+                    Label("Reading Goals", systemImage: "target")
+                }
+                Button {
+                    showingStreaks = true
+                } label: {
+                    Label("Streaks & Achievements", systemImage: "flame")
+                }
+            }
+
+            Section {
+                Button {
+                    showingSettings = true
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
+            }
+        } label: {
+            Label("More", systemImage: "ellipsis.circle")
+        }
+    }
+    #endif
 
     @ViewBuilder
     private var normalToolbar: some View {
@@ -655,6 +945,7 @@ struct LibraryMainView: View {
         Button(action: onAddBook) {
             Label("Add Book", systemImage: "plus")
         }
+        .help("Open EPUB file (⌘O)")
     }
 
     @ViewBuilder
@@ -990,14 +1281,58 @@ struct LibraryMainView: View {
     #if os(iOS)
     @ViewBuilder
     private func iOSSettingsView() -> some View {
+        // Native iOS "Settings.app" structure: a top-level list of
+        // categories, each pushing to a full-screen detail. This avoids
+        // nesting the sub-views' own `Form`s inside another `Form` (which
+        // renders as broken inset lists) and gives every pane — including
+        // AI Providers, AI Prompt, and About, which were unreachable on
+        // iOS before — room to breathe.
         NavigationStack {
-            Form {
-                GeneralSettingsView()
+            List {
+                Section("Reading") {
+                    NavigationLink {
+                        GeneralSettingsView()
+                            .navigationTitle("General")
+                            .navigationBarTitleDisplayMode(.inline)
+                    } label: {
+                        Label("General", systemImage: "gear")
+                    }
+
+                    NavigationLink {
+                        ReaderSettingsView()
+                            .navigationTitle("Reader")
+                            .navigationBarTitleDisplayMode(.inline)
+                    } label: {
+                        Label("Reader", systemImage: "book")
+                    }
+                }
+
+                Section("Intelligence") {
+                    NavigationLink {
+                        AIProvidersSettingsView()
+                            .navigationTitle("AI Providers")
+                            .navigationBarTitleDisplayMode(.inline)
+                    } label: {
+                        Label("AI Providers", systemImage: "cpu")
+                    }
+
+                    NavigationLink {
+                        AIPromptSettingsView()
+                            .navigationTitle("AI Prompt")
+                            .navigationBarTitleDisplayMode(.inline)
+                    } label: {
+                        Label("AI Prompt", systemImage: "text.alignleft")
+                    }
+                }
 
                 Section {
-                    ReaderSettingsView()
-                } header: {
-                    Text("Reader")
+                    NavigationLink {
+                        AboutView()
+                            .navigationTitle("About")
+                            .navigationBarTitleDisplayMode(.inline)
+                    } label: {
+                        Label("About Crux", systemImage: "info.circle")
+                    }
                 }
             }
             .navigationTitle("Settings")
@@ -1042,19 +1377,32 @@ struct LibraryMainView: View {
 
     private func handleDrop(providers: [NSItemProvider]) -> Bool {
         #if os(macOS)
-        // Process each dropped item
+        // Collect every dropped file URL upfront so we know the total
+        // and can show a per-file progress sheet. `loadItem` is async,
+        // so we use a dispatch group to wait for resolution before
+        // kicking off the import batch.
+        let group = DispatchGroup()
+        var urls: [URL] = []
+        let urlsLock = NSLock()
+
         for provider in providers {
-            provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { item, error in
+            group.enter()
+            provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { item, _ in
+                defer { group.leave() }
                 guard let data = item as? Data,
                       let url = URL(dataRepresentation: data, relativeTo: nil),
                       url.pathExtension.lowercased() == "epub" else {
                     return
                 }
+                urlsLock.lock()
+                urls.append(url)
+                urlsLock.unlock()
+            }
+        }
 
-                // Import the book on the main actor
-                Task { @MainActor in
-                    await onImportBook(url)
-                }
+        group.notify(queue: .main) {
+            Task { @MainActor in
+                await runBatchImport(urls: urls)
             }
         }
         return true
@@ -1062,18 +1410,62 @@ struct LibraryMainView: View {
         return false
         #endif
     }
+
+    /// Run an import batch with per-file progress feedback. For a single
+    /// file we skip the sheet (it would just flicker on screen); for
+    /// multiple files we show `BatchImportProgressView` until every
+    /// item resolves.
+    @MainActor
+    private func runBatchImport(urls: [URL]) async {
+        guard !urls.isEmpty else { return }
+
+        // Single-file drops keep the existing simple flow.
+        if urls.count == 1 {
+            await onImportBook(urls[0])
+            return
+        }
+
+        batchImportProgress = urls.map { url in
+            BatchImportItem(id: UUID(), fileName: url.lastPathComponent, status: .pending)
+        }
+        isBatchImportActive = true
+
+        // Import serially so we don't fight for storage I/O and so the
+        // sheet's progress updates are easy to read.
+        for (index, url) in urls.enumerated() {
+            batchImportProgress[index].status = .importing
+            await onImportBook(url)
+            batchImportProgress[index].status = .succeeded
+        }
+
+        // Hold the completion state briefly so the user sees the final
+        // checkmarks before the sheet dismisses.
+        try? await Task.sleep(nanoseconds: 700_000_000)
+        isBatchImportActive = false
+        batchImportProgress.removeAll()
+    }
+}
+
+/// One row in the drag & drop batch import progress sheet.
+struct BatchImportItem: Identifiable, Equatable {
+    enum Status: Equatable { case pending, importing, succeeded, failed(String) }
+    let id: UUID
+    let fileName: String
+    var status: Status
 }
 
 struct LibrarySearchBar: View {
     @Binding var query: String
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(isFocused ? Color.cruxAccent : .secondary)
 
-            TextField("Search library...", text: $query)
+            TextField("Search library…", text: $query)
                 .textFieldStyle(.plain)
+                .focused($isFocused)
 
             if !query.isEmpty {
                 Button {
@@ -1083,12 +1475,20 @@ struct LibrarySearchBar: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.quaternary)
-        .cornerRadius(8)
+        .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            // Visible focus ring in the brand accent — the old bar gave no
+            // cue at all that it had keyboard focus.
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(isFocused ? Color.cruxAccent.opacity(0.6) : Color.primary.opacity(0.08),
+                              lineWidth: 1)
+        )
+        .animation(.easeInOut(duration: 0.15), value: isFocused)
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
     }
@@ -1104,6 +1504,10 @@ struct BookListView: View {
     let onSelectBook: (UUID) -> Void
     let onShowDetails: (UUID) -> Void
     let onDeleteBook: (StoredBook) -> Void
+
+    #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+    #endif
 
     var body: some View {
         ScrollView {
@@ -1139,14 +1543,40 @@ struct BookListView: View {
                             onSelectBook(book.id)
                         }
                     }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(accessibilityLabel(for: book))
+                    .accessibilityHint(isSelectionMode ? "Double tap to toggle selection" : "Double tap to open book")
+                    .accessibilityAddTraits(.isButton)
                     .contextMenu {
                         // Disable context menu in selection mode
                         if !isSelectionMode {
+                            Button {
+                                onSelectBook(book.id)
+                            } label: {
+                                Label("Open", systemImage: "book")
+                            }
+
+                            #if os(macOS)
+                            Button {
+                                openWindow(id: "book-reader", value: book.id)
+                            } label: {
+                                Label("Open in New Window", systemImage: "rectangle.stack.badge.plus")
+                            }
+                            #endif
+
                             Button {
                                 onShowDetails(book.id)
                             } label: {
                                 Label("Show Details", systemImage: "info.circle")
                             }
+
+                            #if os(macOS)
+                            Button {
+                                revealInFinder(bookId: book.id)
+                            } label: {
+                                Label("Reveal in Finder", systemImage: "folder")
+                            }
+                            #endif
 
                             if !collections.isEmpty {
                                 Menu {
@@ -1170,6 +1600,8 @@ struct BookListView: View {
                                 }
                             }
 
+                            Divider()
+
                             Button(role: .destructive) {
                                 onDeleteBook(book)
                             } label: {
@@ -1186,6 +1618,7 @@ struct BookListView: View {
             }
             .padding(.vertical, 4)
         }
+        .cruxScrollEdgeSoft()
         .frame(maxWidth: 720)
         .frame(maxWidth: .infinity)
     }
@@ -1196,6 +1629,26 @@ struct BookListView: View {
         } else {
             selectedBooks.insert(bookId)
         }
+    }
+
+    private func accessibilityLabel(for book: StoredBook) -> String {
+        var parts: [String] = [book.title]
+        if let author = book.author, !author.isEmpty {
+            parts.append("by \(author)")
+        }
+        if book.totalChapters > 0 {
+            let pct: Int
+            if book.isFinished {
+                pct = 100
+            } else {
+                pct = Int((Double(book.currentChapterIndex) / Double(book.totalChapters)) * 100)
+            }
+            parts.append("\(pct) percent read")
+        }
+        if isSelectionMode {
+            parts.append(selectedBooks.contains(book.id) ? "selected" : "not selected")
+        }
+        return parts.joined(separator: ", ")
     }
 
     private func toggleBookInCollection(book: StoredBook, collection: BookCollection) {
@@ -1212,221 +1665,26 @@ struct BookListView: View {
         }
         try? modelContext.save()
     }
+
+    #if os(macOS)
+    /// Pop the EPUB file open in Finder using
+    /// `NSWorkspace.activateFileViewerSelecting(...)`. Resolves the
+    /// stored book URL on a Task because `BookStorage.bookURL(for:)` is
+    /// `await`-only; selection is then dispatched back to the main
+    /// thread because AppKit Workspace calls must happen on main.
+    fileprivate func revealInFinder(bookId: UUID) {
+        Task {
+            let url = await BookStorage.shared.bookURL(for: bookId)
+            await MainActor.run {
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            }
+        }
+    }
+    #endif
 }
 
-struct BookListRow: View {
-    let book: StoredBook
-    let stats: AnnotationStats?
-    let onShowDetails: () -> Void
-    @State private var isHovered = false
-
-    private var progressFraction: Double {
-        guard book.totalChapters > 0 else { return 0 }
-        if book.isFinished { return 1.0 }
-        return Double(book.currentChapterIndex) / Double(book.totalChapters)
-    }
-
-    private var progressPercent: Int {
-        Int(progressFraction * 100)
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            // Cover thumbnail
-            if let coverData = book.coverImageData,
-               let nsImage = NSImage(data: coverData) {
-                Image(nsImage: nsImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 40, height: 60)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-            } else {
-                // Fallback placeholder
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(
-                        LinearGradient(
-                            colors: [.blue.opacity(0.4), .purple.opacity(0.4)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 40, height: 60)
-                    .overlay {
-                        Image(systemName: "book.fill")
-                            .font(.system(size: 16))
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
-            }
-
-            VStack(alignment: .leading, spacing: 3) {
-                // Line 1: Title + Info button + Added date
-                HStack(alignment: .top) {
-                    Text(book.title)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-
-                    Spacer(minLength: 8)
-
-                    if isHovered {
-                        Button {
-                            onShowDetails()
-                        } label: {
-                            Image(systemName: "info.circle")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Show book details")
-                    }
-
-                    Text("Added \(book.addedAt.relativeShort)")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.tertiary)
-                }
-
-                // Line 2: Author · Publisher · Year · Language
-                MetadataLine(book: book)
-
-                // Line 3: Progress bar + Chapter position + Last read
-                ProgressLine(book: book, progressFraction: progressFraction, progressPercent: progressPercent)
-
-                // Line 4: Annotations + Subjects
-                AnnotationLine(stats: stats, subjects: book.subjects)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(isHovered ? Color.primary.opacity(0.03) : Color.clear)
-        .onHover { hovering in
-            isHovered = hovering
-        }
-    }
-}
-
-// MARK: - Row Components
-
-struct MetadataLine: View {
-    let book: StoredBook
-
-    var body: some View {
-        HStack(spacing: 0) {
-            let parts = metadataParts
-            ForEach(Array(parts.enumerated()), id: \.offset) { index, part in
-                Text(part)
-                if index < parts.count - 1 {
-                    Text(" · ")
-                        .foregroundStyle(.quaternary)
-                }
-            }
-        }
-        .font(.system(size: 12))
-        .foregroundStyle(.secondary)
-        .lineLimit(1)
-    }
-
-    private var metadataParts: [String] {
-        var parts: [String] = []
-        if let author = book.author, !author.isEmpty {
-            parts.append(author)
-        }
-        if let publisher = book.publisher, !publisher.isEmpty {
-            parts.append(publisher)
-        }
-        if let year = book.publicationYear {
-            parts.append(String(year))
-        }
-        if let language = book.language, !language.isEmpty {
-            parts.append(language.uppercased())
-        }
-        return parts
-    }
-}
-
-struct ProgressLine: View {
-    let book: StoredBook
-    let progressFraction: Double
-    let progressPercent: Int
-
-    var body: some View {
-        HStack(spacing: 8) {
-            // Progress bar (flex width)
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.primary.opacity(0.08))
-
-                    Capsule()
-                        .fill(book.isFinished ? Color.green : Color.primary.opacity(0.4))
-                        .frame(width: max(0, geo.size.width * progressFraction))
-                }
-            }
-            .frame(height: 4)
-
-            // Chapter progress
-            if book.totalChapters > 0 {
-                Text(chapterText)
-                    .font(.system(size: 11, weight: .medium).monospacedDigit())
-                    .foregroundStyle(book.isFinished ? .green : .secondary)
-            }
-
-            // Last read
-            if let lastOpened = book.lastOpenedAt {
-                Text("·")
-                    .foregroundStyle(.quaternary)
-                Text("Read \(lastOpened.relativeShort)")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
-            }
-        }
-    }
-
-    private var chapterText: String {
-        if book.isFinished {
-            return "Done"
-        }
-        return "Ch \(book.currentChapterIndex + 1)/\(book.totalChapters) (\(progressPercent)%)"
-    }
-}
-
-struct AnnotationLine: View {
-    let stats: AnnotationStats?
-    let subjects: [String]
-
-    var body: some View {
-        HStack(spacing: 0) {
-            // Annotation stats
-            if let stats = stats, stats.highlightCount > 0 || stats.threadCount > 0 {
-                HStack(spacing: 8) {
-                    if stats.highlightCount > 0 {
-                        Label("\(stats.highlightCount)", systemImage: "highlighter")
-                            .font(.system(size: 11))
-                    }
-                    if stats.threadCount > 0 {
-                        Label("\(stats.threadCount)", systemImage: "bubble.left")
-                            .font(.system(size: 11))
-                    }
-                }
-                .foregroundStyle(.tertiary)
-
-                if !subjects.isEmpty {
-                    Text(" · ")
-                        .foregroundStyle(.quaternary)
-                }
-            }
-
-            // Subjects
-            if !subjects.isEmpty {
-                Text(subjects.prefix(3).joined(separator: ", "))
-                    .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 0)
-        }
-    }
-}
+// BookListRow + MetadataLine + ProgressLine + AnnotationLine moved to
+// Shared/Views/Library/BookListRow.swift to keep this file manageable.
 
 // MARK: - Grid View
 
@@ -1440,6 +1698,10 @@ struct BookGridView: View {
     let onSelectBook: (UUID) -> Void
     let onShowDetails: (UUID) -> Void
     let onDeleteBook: (StoredBook) -> Void
+
+    #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+    #endif
 
     private let columns = [
         GridItem(.adaptive(minimum: 200, maximum: 250), spacing: 16)
@@ -1484,14 +1746,40 @@ struct BookGridView: View {
                             onSelectBook(book.id)
                         }
                     }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(accessibilityLabel(for: book))
+                    .accessibilityHint(isSelectionMode ? "Double tap to toggle selection" : "Double tap to open book")
+                    .accessibilityAddTraits(.isButton)
                     .contextMenu {
                         // Disable context menu in selection mode
                         if !isSelectionMode {
+                            Button {
+                                onSelectBook(book.id)
+                            } label: {
+                                Label("Open", systemImage: "book")
+                            }
+
+                            #if os(macOS)
+                            Button {
+                                openWindow(id: "book-reader", value: book.id)
+                            } label: {
+                                Label("Open in New Window", systemImage: "rectangle.stack.badge.plus")
+                            }
+                            #endif
+
                             Button {
                                 onShowDetails(book.id)
                             } label: {
                                 Label("Show Details", systemImage: "info.circle")
                             }
+
+                            #if os(macOS)
+                            Button {
+                                revealInFinder(bookId: book.id)
+                            } label: {
+                                Label("Reveal in Finder", systemImage: "folder")
+                            }
+                            #endif
 
                             if !collections.isEmpty {
                                 Menu {
@@ -1515,6 +1803,8 @@ struct BookGridView: View {
                                 }
                             }
 
+                            Divider()
+
                             Button(role: .destructive) {
                                 onDeleteBook(book)
                             } label: {
@@ -1526,6 +1816,7 @@ struct BookGridView: View {
             }
             .padding()
         }
+        .cruxScrollEdgeSoft()
         .frame(maxWidth: .infinity)
     }
 
@@ -1535,6 +1826,26 @@ struct BookGridView: View {
         } else {
             selectedBooks.insert(bookId)
         }
+    }
+
+    private func accessibilityLabel(for book: StoredBook) -> String {
+        var parts: [String] = [book.title]
+        if let author = book.author, !author.isEmpty {
+            parts.append("by \(author)")
+        }
+        if book.totalChapters > 0 {
+            let pct: Int
+            if book.isFinished {
+                pct = 100
+            } else {
+                pct = Int((Double(book.currentChapterIndex) / Double(book.totalChapters)) * 100)
+            }
+            parts.append("\(pct) percent read")
+        }
+        if isSelectionMode {
+            parts.append(selectedBooks.contains(book.id) ? "selected" : "not selected")
+        }
+        return parts.joined(separator: ", ")
     }
 
     private func toggleBookInCollection(book: StoredBook, collection: BookCollection) {
@@ -1551,127 +1862,21 @@ struct BookGridView: View {
         }
         try? modelContext.save()
     }
-}
 
-struct BookGridCard: View {
-    let book: StoredBook
-    let stats: AnnotationStats?
-    let onShowDetails: () -> Void
-    @State private var isHovered = false
-
-    private var progressFraction: Double {
-        guard book.totalChapters > 0 else { return 0 }
-        if book.isFinished { return 1.0 }
-        return Double(book.currentChapterIndex) / Double(book.totalChapters)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Book cover with info button
-            ZStack(alignment: .topTrailing) {
-                if let coverData = book.coverImageData,
-                   let nsImage = NSImage(data: coverData) {
-                    Image(nsImage: nsImage)
-                        .resizable()
-                        .scaledToFill()
-                        .aspectRatio(0.7, contentMode: .fit)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                } else {
-                    // Fallback placeholder
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(
-                            LinearGradient(
-                                colors: [.blue.opacity(0.6), .purple.opacity(0.6)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .aspectRatio(0.7, contentMode: .fit)
-                        .overlay {
-                            Image(systemName: "book.fill")
-                                .font(.system(size: 48))
-                                .foregroundStyle(.white.opacity(0.8))
-                        }
-                }
-
-                // Info button overlay (appears on hover)
-                if isHovered {
-                    Button {
-                        onShowDetails()
-                    } label: {
-                        Image(systemName: "info.circle.fill")
-                            .font(.system(size: 20))
-                            .foregroundStyle(.white)
-                            .background(
-                                Circle()
-                                    .fill(.black.opacity(0.3))
-                                    .padding(-6)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .padding(8)
-                    .help("Show book details")
-                }
-            }
-
-            // Book info
-            VStack(alignment: .leading, spacing: 6) {
-                Text(book.title)
-                    .font(.system(size: 14, weight: .semibold))
-                    .lineLimit(2)
-                    .foregroundStyle(.primary)
-
-                if let author = book.author {
-                    Text(author)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-
-                // Progress indicator
-                if book.totalChapters > 0 {
-                    HStack(spacing: 6) {
-                        ProgressView(value: progressFraction)
-                            .tint(.accentColor)
-
-                        Text("\(Int(progressFraction * 100))%")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                    }
-                }
-
-                // Stats
-                if let stats = stats, stats.highlightCount > 0 {
-                    HStack(spacing: 8) {
-                        Label("\(stats.highlightCount)", systemImage: "highlighter")
-                            .font(.caption2)
-                            .foregroundStyle(.blue)
-
-                        if stats.threadCount > 0 {
-                            Label("\(stats.threadCount)", systemImage: "bubble.left.and.bubble.right")
-                                .font(.caption2)
-                                .foregroundStyle(.purple)
-                        }
-                    }
-                }
+    #if os(macOS)
+    fileprivate func revealInFinder(bookId: UUID) {
+        Task {
+            let url = await BookStorage.shared.bookURL(for: bookId)
+            await MainActor.run {
+                NSWorkspace.shared.activateFileViewerSelecting([url])
             }
         }
-        .padding(12)
-        .background(isHovered ? Color(.controlBackgroundColor) : Color.clear)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-        )
-        .shadow(color: isHovered ? .black.opacity(0.1) : .clear, radius: 8, x: 0, y: 4)
-        .scaleEffect(isHovered ? 1.02 : 1.0)
-        .animation(.easeInOut(duration: 0.2), value: isHovered)
-        .onHover { hovering in
-            isHovered = hovering
-        }
     }
+    #endif
 }
+
+// BookGridCard + FinishedBadge moved to
+// Shared/Views/Library/BookGridCard.swift.
 
 // MARK: - Filter Badge
 
@@ -1713,31 +1918,110 @@ struct EmptyLibraryView: View {
     let onAddBook: () -> Void
 
     var body: some View {
-        VStack(spacing: 24) {
-            VStack(spacing: 8) {
-                Text("Your library is empty")
-                    .font(.system(size: 20, weight: .medium, design: .serif))
+        VStack(spacing: 32) {
+            // Hero icon
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.blue.opacity(0.15), Color.purple.opacity(0.15)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 120, height: 120)
+
+                Image(systemName: "books.vertical")
+                    .font(.system(size: 48, weight: .light))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Color.blue, Color.purple],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
+
+            VStack(spacing: 12) {
+                Text("Welcome to Crux")
+                    .font(.system(size: 28, weight: .semibold, design: .rounded))
                     .foregroundStyle(.primary)
 
-                Text("Add an EPUB to start reading")
-                    .font(.system(size: 15, design: .serif))
+                Text("Your AI-powered reading companion")
+                    .font(.system(size: 16, design: .rounded))
                     .foregroundStyle(.secondary)
             }
 
-            Button(action: onAddBook) {
-                HStack(spacing: 6) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 13, weight: .semibold))
-                    Text("Add Book")
-                        .font(.system(size: 14, weight: .medium))
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+            // Quick start guide
+            VStack(alignment: .leading, spacing: 16) {
+                QuickStartTip(
+                    icon: "plus.circle.fill",
+                    title: "Add your first book",
+                    description: "Click below or drag an EPUB file anywhere"
+                )
+
+                QuickStartTip(
+                    icon: "keyboard",
+                    title: "Keyboard shortcut",
+                    description: "Press ⌘O to open a book quickly",
+                    accentColor: .blue
+                )
+
+                QuickStartTip(
+                    icon: "sparkles",
+                    title: "AI annotations",
+                    description: "Highlight text to get AI-powered insights",
+                    accentColor: .purple
+                )
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.primary.opacity(0.8))
+            .padding(24)
+            .cruxGlassCard(cornerRadius: 16)
+            .frame(maxWidth: 400)
+
+            Button(action: onAddBook) {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 16))
+                    Text("Add Your First Book")
+                        .font(.system(size: 16, weight: .semibold))
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 14)
+            }
+            .cruxGlassButton(prominent: true)
+            .controlSize(.large)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
+    }
+}
+
+// MARK: - Quick Start Tip Component
+
+struct QuickStartTip: View {
+    let icon: String
+    let title: String
+    let description: String
+    var accentColor: Color = .primary
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 20))
+                .foregroundStyle(accentColor)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.primary)
+
+                Text(description)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 }
 

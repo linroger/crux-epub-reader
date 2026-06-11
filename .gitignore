@@ -31,3 +31,14 @@ fastlane/test_output
 
 # Code Injection
 iOSInjectionProject/
+
+# Build artifacts & ephemeral local data (not source)
+Crux.app/
+*.app/
+Screenshots/logs/
+.claude/data/
+logs/
+
+# claude-mem drops per-directory memory indexes next to the code; they're
+# tooling state, not source (also excluded from app resources in project.yml).
+Shared/**/CLAUDE.md

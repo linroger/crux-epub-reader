@@ -10,19 +10,32 @@ struct KeyboardShortcutsView: View {
                     // Library Section
                     ShortcutSection(title: "Library", shortcuts: [
                         ShortcutItem(key: "⌘O", description: "Open EPUB file"),
-                        ShortcutItem(key: "⌘,", description: "Open Settings")
+                        ShortcutItem(key: "⌘,", description: "Open Settings"),
+                        ShortcutItem(key: "⌘⇧S", description: "Open Reading Statistics"),
+                        ShortcutItem(key: "⌘⇧G", description: "Open Reading Goals"),
+                        ShortcutItem(key: "⌘⇧T", description: "Open Reading Streaks")
                     ])
 
                     // Reading Section
                     ShortcutSection(title: "Reading", shortcuts: [
+                        ShortcutItem(key: "⌘L", description: "Show table of contents"),
                         ShortcutItem(key: "⌘F", description: "Find in book"),
                         ShortcutItem(key: "⌘T", description: "Toggle table of contents"),
-                        ShortcutItem(key: "⌘B", description: "Toggle bookmarks"),
+                        ShortcutItem(key: "⌘B", description: "Toggle bookmarks · Add bookmark here"),
                         ShortcutItem(key: "⌘H", description: "Toggle highlights"),
-                        ShortcutItem(key: "Left Arrow", description: "Previous page"),
-                        ShortcutItem(key: "Right Arrow", description: "Next page"),
+                        ShortcutItem(key: "⌃⌘D", description: "Look up selection in Dictionary"),
+                        ShortcutItem(key: "Left Arrow", description: "Previous chapter"),
+                        ShortcutItem(key: "Right Arrow", description: "Next chapter"),
                         ShortcutItem(key: "⌘[", description: "Previous chapter"),
                         ShortcutItem(key: "⌘]", description: "Next chapter")
+                    ])
+
+                    // Internal links — only relevant if the EPUB uses
+                    // footnotes/glossary references; mentioning it makes
+                    // the feature discoverable.
+                    ShortcutSection(title: "Internal Links", shortcuts: [
+                        ShortcutItem(key: "Click", description: "Follow footnote / glossary link"),
+                        ShortcutItem(key: "Back button", description: "Return after following a link"),
                     ])
 
                     // Search Section
@@ -35,14 +48,18 @@ struct KeyboardShortcutsView: View {
                     // Annotations Section
                     ShortcutSection(title: "Annotations", shortcuts: [
                         ShortcutItem(key: "⌘N", description: "Add note to selection"),
-                        ShortcutItem(key: "⌘⇧H", description: "Highlight selection"),
-                        ShortcutItem(key: "⌘⇧A", description: "Ask AI about selection")
+                        ShortcutItem(key: "⌘⇧H", description: "Highlight selection")
                     ])
 
                     // Window Management
                     ShortcutSection(title: "Window Management", shortcuts: [
                         ShortcutItem(key: "⌘W", description: "Close window"),
                         ShortcutItem(key: "⌘M", description: "Minimize window")
+                    ])
+
+                    // Help
+                    ShortcutSection(title: "Help", shortcuts: [
+                        ShortcutItem(key: "⌘/", description: "Show this keyboard shortcuts guide")
                     ])
                 }
                 .padding(24)

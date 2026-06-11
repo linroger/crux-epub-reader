@@ -10,6 +10,15 @@ const CruxMarginNotes = {
         this.marginLeft = document.querySelector('.crux-margin-left');
         this.marginRight = document.querySelector('.crux-margin-right');
         this.setupEventDelegation();
+
+        // Reposition notes when the window resizes — the prose reflows, so a
+        // note's vertical anchor (and left/right side) must be recomputed to
+        // stay beside its highlight. Debounced to avoid thrashing.
+        let resizeTimer = null;
+        window.addEventListener('resize', () => {
+            if (resizeTimer) clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => this.reflow(), 120);
+        });
     },
 
     activeNoteId: null,
@@ -383,6 +392,26 @@ const CruxMarginNotes = {
                 rightBottom = wouldBeOnRight + note.height + GAP;
             }
         }
+    },
+
+    /// Recompute every note's ideal vertical anchor from its highlight's
+    /// current position and re-run collision resolution. The prose reflows
+    /// whenever the window resizes or the host swaps the appearance
+    /// stylesheet (theme/font/size/margin changes from the Aa popover) —
+    /// this keeps notes beside their highlighted passage and never
+    /// overlapping the text.
+    reflow: function() {
+        if (!this.marginRight && !this.marginLeft) {
+            this.marginLeft = document.querySelector('.crux-margin-left');
+            this.marginRight = document.querySelector('.crux-margin-right');
+        }
+        for (const [highlightId, note] of this.notes) {
+            const highlight = document.querySelector('[data-highlight-id="' + highlightId + '"]');
+            if (highlight) {
+                note.dataset.idealTop = this.getDocumentOffset(highlight);
+            }
+        }
+        this.resolveCollisions();
     },
 
     escapeHTML: function(str) {

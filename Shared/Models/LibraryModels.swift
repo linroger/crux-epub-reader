@@ -38,6 +38,19 @@ final class StoredBook {
     var readingStatusRaw: String = ReadingStatus.wantToRead.rawValue  // Backing property for SwiftData
     var scrollPosition: Double = 0  // 0.0-1.0 percentage within chapter
 
+    /// Most recent CFI within the current chapter (EPUB Canonical Fragment
+    /// Identifier). When set, the reader uses it to restore the user to
+    /// the exact element they were on, not just a chapter-level
+    /// `scrollPosition` approximation. Empty string means "no CFI cached
+    /// yet — fall back to scrollPosition".
+    var lastReadingCFI: String = ""
+
+    /// Cached estimated reading time, in whole minutes, at the default
+    /// reading speed (220 wpm). 0 means "not computed yet" — the field
+    /// is populated during book import, and lazily on first reader
+    /// open for books imported before this field existed.
+    var cachedReadingMinutes: Int = 0
+
     var readingStatus: ReadingStatus {
         get { ReadingStatus(rawValue: readingStatusRaw) ?? .wantToRead }
         set { readingStatusRaw = newValue.rawValue }

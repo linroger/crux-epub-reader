@@ -1,4 +1,28 @@
-// CruxViewportTracker - Tracks which chapter/subchapter is visible during scroll
+/**
+ * CruxViewportTracker - Tracks which chapter/subchapter is visible during scroll.
+ *
+ * Lifecycle:
+ *   1. Swift calls `init(anchorsToTrack)` after the WebView loads with
+ *      a manifest of `{ id, chapterIndex, isFileStart }` entries, one
+ *      per (sub)chapter that lives in the current HTML file.
+ *   2. Each anchor is observed via an IntersectionObserver. When the
+ *      set of visible anchors changes (debounced 100ms), the topmost
+ *      one is selected and posted to Swift.
+ *
+ * Message sent to Swift (via `webkit.messageHandlers.visibleSection`):
+ *   {
+ *     anchorId:      string,   // the anchor element's DOM id
+ *     chapterIndex:  number,   // index into book.chapters
+ *     scrollPosition: number,  // 0..1 within the current HTML file
+ *     cfi:           string?   // element-level CFI of the topmost
+ *                              // visible block element, or null
+ *   }
+ *
+ * Swift toggles `isProgrammaticNavigation` via `beginProgrammaticNavigation`
+ * / `endProgrammaticNavigation` around explicit jumps so scroll updates
+ * driven by TOC clicks or position restoration don't echo back as
+ * "user moved here" events.
+ */
 const CruxViewportTracker = {
     observer: null,
     anchors: new Map(),          // anchorId -> { element, chapterIndex }
@@ -95,9 +119,41 @@ const CruxViewportTracker = {
             window.webkit.messageHandlers.visibleSection.postMessage({
                 anchorId: topAnchor.id,
                 chapterIndex: topAnchor.chapterIndex,
-                scrollPosition: CruxHighlighter.getScrollPosition()
+                scrollPosition: CruxHighlighter.getScrollPosition(),
+                cfi: this.getTopOfViewportCFI()
             });
         }
+    },
+
+    // CFI (element-level path) for the element currently sitting at the
+    // top of the viewport. Used by Swift to persist precise scroll
+    // position via StoredBook.lastReadingCFI, so the reader can restore
+    // to the exact element rather than a percentage approximation.
+    //
+    // Returns a string like "/4/2/1" or null if no suitable element is
+    // visible (e.g., empty document).
+    getTopOfViewportCFI: function() {
+        // Prefer block-level elements (p, h*, li, blockquote) because
+        // they tend to align with what the reader was actually looking
+        // at. Fall back to any element with a bounding rect near the top.
+        const candidates = document.querySelectorAll(
+            'p, h1, h2, h3, h4, h5, h6, li, blockquote, div, section, article'
+        );
+        let best = null;
+        let bestTop = Infinity;
+        for (const el of candidates) {
+            const rect = el.getBoundingClientRect();
+            // Element should be visible and reasonably close to the top.
+            // Allow a 60px upward overshoot to handle elements scrolled
+            // *just* past the top edge.
+            if (rect.height <= 0) continue;
+            if (rect.top >= -60 && rect.top < bestTop) {
+                bestTop = rect.top;
+                best = el;
+            }
+        }
+        if (!best) return null;
+        return CruxCFI.getPathToNode(best);
     },
 
     findNearestAbove: function() {

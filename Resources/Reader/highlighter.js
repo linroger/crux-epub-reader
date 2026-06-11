@@ -1,4 +1,29 @@
-// CruxHighlighter - DOM highlight application and management
+/**
+ * CruxHighlighter — DOM highlight application and position helpers.
+ *
+ * Owns three concerns:
+ *
+ *   1. **Highlights.** `applyHighlights(arr)` consumes a JSON array of
+ *      `{ id, startPath, startOffset, endPath, endOffset }`. The path
+ *      strings are produced by `CruxCFI.getPathToNode` and re-walked
+ *      here via `findNodeByPath`. Each highlight wraps its text in a
+ *      `<span class="crux-highlight">` and posts taps to Swift via
+ *      `webkit.messageHandlers.highlightTapped`.
+ *
+ *   2. **Scrolling.** `setScrollPosition(0..1)` and `scrollToAnchor(id)`
+ *      are used by Swift to restore reading position or jump to a
+ *      chapter fragment. `scrollToCFI(cfiString)` accepts either an
+ *      element path or the combined start/end form (highlight CFI)
+ *      and scrolls the resolved node into view.
+ *
+ *   3. **Reporting.** `getScrollPosition()` returns the current scroll
+ *      percentage so the viewport-tracker can include it in its
+ *      visibleSection update; `getAllHighlightPositions()` is used by
+ *      the margin-notes module to lay out the side rail.
+ *
+ * Path format: `/4/2/1` is a 1-based child index walk from `document.body`,
+ * skipping whitespace-only text nodes. See `CruxCFI` for the writer side.
+ */
 const CruxHighlighter = {
     highlights: new Map(),
 
@@ -22,9 +47,20 @@ const CruxHighlighter = {
         const startNode = this.findNodeByPath(startPath);
         const endNode = this.findNodeByPath(endPath);
 
-        if (!startNode || !endNode) return false;
-        if (startNode.nodeType !== Node.TEXT_NODE || endNode.nodeType !== Node.TEXT_NODE) return false;
-        if (startOffset > startNode.textContent.length || endOffset > endNode.textContent.length) return false;
+        // CFI paths can fail to resolve when the document was reflowed
+        // between sessions (a CSS change, an EPUB re-parse, an injected
+        // wrapper). Rather than silently dropping a persisted highlight,
+        // fall back to locating the saved text directly so prior-session
+        // annotations still re-appear.
+        const pathResolves = startNode && endNode
+            && startNode.nodeType === Node.TEXT_NODE
+            && endNode.nodeType === Node.TEXT_NODE
+            && startOffset <= startNode.textContent.length
+            && endOffset <= endNode.textContent.length;
+
+        if (!pathResolves) {
+            return this.applyHighlightByText(id, data.text);
+        }
 
         try {
             const range = document.createRange();
@@ -98,8 +134,133 @@ const CruxHighlighter = {
             return true;
         } catch (e) {
             console.error('Error applying highlight:', e);
+            // Last-ditch fallback: try to anchor by text so the highlight
+            // isn't lost outright.
+            return this.applyHighlightByText(id, data.text);
+        }
+    },
+
+    /// Anchor a highlight by searching the document for its saved text.
+    /// Used when the stored CFI path no longer resolves. Wraps the first
+    /// matching run of text nodes in a `.crux-highlight` span so persisted
+    /// highlights survive reflows that invalidate exact DOM paths.
+    applyHighlightByText: function(id, text) {
+        if (!text || this.highlights.has(id)) return false;
+        const needle = text.replace(/\s+/g, ' ').trim();
+        if (needle.length < 2) return false;
+
+        const root = document.querySelector('.crux-content') || document.body;
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+            acceptNode: function(node) {
+                // Skip whitespace-only nodes and anything already highlighted.
+                if (!node.textContent.trim()) return NodeFilter.FILTER_REJECT;
+                if (node.parentElement && node.parentElement.closest('.crux-highlight')) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        });
+
+        // Build a normalized concatenation of text nodes with an index map
+        // back to (node, offset) so we can translate a match position in the
+        // flattened string into a real DOM Range.
+        const segments = [];
+        let flat = '';
+        let node;
+        while (node = walker.nextNode()) {
+            const raw = node.textContent;
+            for (let i = 0; i < raw.length; i++) {
+                const ch = /\s/.test(raw[i]) ? ' ' : raw[i];
+                // Collapse runs of whitespace in the flattened string.
+                if (ch === ' ' && flat.endsWith(' ')) {
+                    segments.push({ node: node, offset: i, skipped: true });
+                    continue;
+                }
+                segments.push({ node: node, offset: i, skipped: false });
+                flat += ch;
+            }
+        }
+
+        const matchStart = flat.indexOf(needle);
+        if (matchStart === -1) return false;
+        const matchEnd = matchStart + needle.length;
+
+        // Map flattened positions back to DOM via the non-skipped segments.
+        const realSegments = segments.filter(s => !s.skipped);
+        const startSeg = realSegments[matchStart];
+        const endSeg = realSegments[matchEnd - 1];
+        if (!startSeg || !endSeg) return false;
+
+        try {
+            const range = document.createRange();
+            range.setStart(startSeg.node, startSeg.offset);
+            range.setEnd(endSeg.node, endSeg.offset + 1);
+            return this.wrapRange(range, id);
+        } catch (e) {
+            console.error('Text-anchored highlight failed:', e);
             return false;
         }
+    },
+
+    /// Wrap an arbitrary Range in `.crux-highlight` span(s), registering the
+    /// resulting elements under `id`. Shared by the CFI and text-fallback
+    /// paths. Returns true on success.
+    wrapRange: function(range, id) {
+        if (range.startContainer === range.endContainer) {
+            const span = document.createElement('span');
+            span.className = 'crux-highlight';
+            span.dataset.highlightId = id;
+            range.surroundContents(span);
+            span.addEventListener('click', () => {
+                window.webkit.messageHandlers.highlightTapped.postMessage(id);
+            });
+            this.highlights.set(id, [span]);
+            return true;
+        }
+
+        const walker = document.createTreeWalker(
+            range.commonAncestorContainer,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+        const textNodes = [];
+        let started = false;
+        let n;
+        while (n = walker.nextNode()) {
+            if (n === range.startContainer) started = true;
+            if (started) textNodes.push(n);
+            if (n === range.endContainer) break;
+        }
+
+        const elements = [];
+        for (let i = 0; i < textNodes.length; i++) {
+            const textNode = textNodes[i];
+            const start = (i === 0) ? range.startOffset : 0;
+            const end = (i === textNodes.length - 1) ? range.endOffset : textNode.textContent.length;
+            if (start >= end) continue;
+
+            const before = textNode.textContent.substring(0, start);
+            const middle = textNode.textContent.substring(start, end);
+            const after = textNode.textContent.substring(end);
+
+            const frag = document.createDocumentFragment();
+            if (before) frag.appendChild(document.createTextNode(before));
+            const span = document.createElement('span');
+            span.className = 'crux-highlight';
+            span.dataset.highlightId = id;
+            span.textContent = middle;
+            span.addEventListener('click', () => {
+                window.webkit.messageHandlers.highlightTapped.postMessage(id);
+            });
+            frag.appendChild(span);
+            if (after) frag.appendChild(document.createTextNode(after));
+            textNode.parentNode.replaceChild(frag, textNode);
+            elements.push(span);
+        }
+        if (elements.length === 0) return false;
+        this.highlights.set(id, elements);
+        return true;
     },
 
     applyHighlights: function(highlightsArray) {
@@ -211,5 +372,33 @@ const CruxHighlighter = {
         if (scrollHeight <= 0) return;
         const scrollTop = percentage * scrollHeight;
         window.scrollTo({ top: scrollTop, behavior: 'instant' });
+    },
+
+    // Scroll to a CFI string. Accepts either an element path
+    // ("/4/2/1") or the combined start/end form used by highlights
+    // ("/4/2/1:0,/4/2/1:42"). For the combined form we use only the
+    // start path — restoring "to within an element" is precise enough
+    // for both reading-position and highlight-navigation use cases.
+    //
+    // Returns true when scrolling succeeded so Swift can fall back to
+    // scrollPosition if the CFI no longer resolves (e.g., chapter was
+    // reflowed by a CSS change).
+    scrollToCFI: function(cfiString) {
+        if (!cfiString) return false;
+        // Combined form: "<startPath>:<startOffset>,<endPath>:<endOffset>"
+        // Element form:  "<path>"
+        const startSegment = cfiString.split(',')[0] || cfiString;
+        const path = startSegment.split(':')[0] || startSegment;
+        const node = this.findNodeByPath(path);
+        if (!node) return false;
+
+        // For text nodes, scroll the parent element so the text is
+        // visible (text nodes themselves have no scrollIntoView).
+        const target = node.nodeType === Node.TEXT_NODE
+            ? node.parentElement
+            : node;
+        if (!target || typeof target.scrollIntoView !== 'function') return false;
+        target.scrollIntoView({ behavior: 'instant', block: 'start' });
+        return true;
     }
 };

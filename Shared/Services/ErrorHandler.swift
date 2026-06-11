@@ -97,19 +97,21 @@ final class ErrorHandler {
     }
 
     private func logError(_ error: AppError) {
-        var logMessage = "[\(error.severity.rawValue.uppercased())] \(error.title)"
+        let title = error.title
+        let context = error.context ?? "n/a"
+        let message = error.message
+        let underlying = error.underlyingError?.localizedDescription ?? ""
 
-        if let context = error.context {
-            logMessage += " - Context: \(context)"
+        switch error.severity {
+        case .critical:
+            AppLog.errors.fault("[\(title, privacy: .public)] context=\(context, privacy: .public) message=\(message, privacy: .public) underlying=\(underlying, privacy: .public)")
+        case .error:
+            AppLog.errors.error("[\(title, privacy: .public)] context=\(context, privacy: .public) message=\(message, privacy: .public) underlying=\(underlying, privacy: .public)")
+        case .warning:
+            AppLog.errors.warning("[\(title, privacy: .public)] context=\(context, privacy: .public) message=\(message, privacy: .public)")
+        case .info:
+            AppLog.errors.info("[\(title, privacy: .public)] context=\(context, privacy: .public) message=\(message, privacy: .public)")
         }
-
-        logMessage += " - \(error.message)"
-
-        if let underlying = error.underlyingError {
-            logMessage += " - Underlying: \(underlying.localizedDescription)"
-        }
-
-        print(logMessage)
     }
 }
 

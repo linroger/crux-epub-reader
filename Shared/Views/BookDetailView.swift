@@ -91,26 +91,16 @@ struct BookDetailView: View {
 
     private var headerSection: some View {
         HStack(alignment: .top, spacing: 20) {
-            // Cover image
-            if let coverData = book.coverImage,
-               let nsImage = NSImage(data: coverData) {
-                Image(nsImage: nsImage)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 120, height: 180)
-                    .cornerRadius(8)
-                    .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
-            } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.gray.opacity(0.2))
-                        .frame(width: 120, height: 180)
-
-                    Image(systemName: "book.closed")
-                        .font(.system(size: 40))
-                        .foregroundStyle(.secondary)
-                }
-            }
+            // Cover image — CachedCoverView is cross-platform (macOS/iOS) and
+            // reuses cached thumbnails; it renders its own placeholder when the
+            // book has no cover data.
+            CachedCoverView(
+                bookId: book.id,
+                data: book.coverImage,
+                size: CGSize(width: 120, height: 180),
+                cornerRadius: 8
+            )
+            .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
 
             VStack(alignment: .leading, spacing: 12) {
                 // Title
@@ -174,7 +164,7 @@ struct BookDetailView: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color(.controlBackgroundColor))
+                    .background(Color.cruxControlBackground)
                     .cornerRadius(6)
                 }
 
@@ -228,7 +218,7 @@ struct BookDetailView: View {
                 }
             }
             .padding()
-            .background(Color(.controlBackgroundColor))
+            .background(Color.cruxControlBackground)
             .cornerRadius(10)
         }
     }
@@ -322,7 +312,7 @@ struct BookDetailView: View {
                     .foregroundStyle(.secondary)
                     .padding()
                     .frame(maxWidth: .infinity)
-                    .background(Color(.controlBackgroundColor))
+                    .background(Color.cruxControlBackground)
                     .cornerRadius(10)
             }
         }
@@ -398,7 +388,7 @@ struct BookDetailView: View {
                     .padding()
                 }
             }
-            .background(Color(.controlBackgroundColor))
+            .background(Color.cruxControlBackground)
             .cornerRadius(10)
         }
     }
@@ -416,7 +406,7 @@ struct BookDetailView: View {
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding()
-                .background(Color(.controlBackgroundColor))
+                .background(Color.cruxControlBackground)
                 .cornerRadius(10)
         }
     }
@@ -487,7 +477,12 @@ struct BookExportSheet: View {
                             Text(format.rawValue).tag(format)
                         }
                     }
+                    // `.radioGroup` is macOS-only; iOS uses segmented.
+                    #if os(macOS)
                     .pickerStyle(.radioGroup)
+                    #else
+                    .pickerStyle(.segmented)
+                    #endif
                 }
 
                 Section {
@@ -680,7 +675,7 @@ struct StatBox: View {
                 .fontWeight(.semibold)
         }
         .padding()
-        .background(Color(.controlBackgroundColor))
+        .background(Color.cruxControlBackground)
         .cornerRadius(10)
     }
 }

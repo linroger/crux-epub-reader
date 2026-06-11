@@ -66,6 +66,10 @@ struct SelectionData: Equatable {
     let text: String
     let cfiRange: CFIRange
     let context: String
+    /// Source strings (inline `data:` URIs or absolute URLs) for images
+    /// near the selection, captured so vision-capable models can analyze
+    /// the figure a passage refers to. Empty for text-only selections.
+    var images: [String] = []
 }
 
 /// Action from a margin note in the WebView

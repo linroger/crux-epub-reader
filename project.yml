@@ -16,6 +16,22 @@ settings:
     SWIFT_VERSION: "5.9"
     DEVELOPMENT_TEAM: ""
 
+# Explicit scheme so `xcodebuild test -scheme Crux_macOS` runs the unit
+# tests. The auto-generated scheme only picked up CruxUITests, so the whole
+# CruxTests bundle was silently skipped by the documented test command.
+schemes:
+  Crux_macOS:
+    build:
+      targets:
+        Crux_macOS: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - CruxTests
+        - CruxUITests
+
 targets:
   Crux:
     type: application
@@ -24,6 +40,10 @@ targets:
       - path: Shared
         excludes:
           - Views/BookMetadataEditorView.swift
+          # Tooling memory files (claude-mem drops these next to the code).
+          # Without the exclude they'd be copied into the app bundle as
+          # resources — and collide, since they all share one filename.
+          - "**/CLAUDE.md"
       - path: Resources/Reader
         buildPhase: resources
       - path: iOS
@@ -53,6 +73,17 @@ targets:
         CFBundleVersion: "1"
         LSMinimumSystemVersion: "14.0"
         UILaunchScreen: {}
+        # Declared here (not hand-edited into Info.plist) so `xcodegen
+        # generate` regenerations don't silently drop them.
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         CFBundleDocumentTypes:
           - CFBundleTypeName: EPUB Document
             CFBundleTypeRole: Viewer
