@@ -316,7 +316,8 @@ final class AnnotationsTests: XCTestCase {
             isCommitted: true,
             hasThread: false,
             threadContent: nil,
-            isLoading: false
+            isLoading: false,
+            errorMessage: nil
         )
 
         let data2 = MarginNoteData(
@@ -325,7 +326,8 @@ final class AnnotationsTests: XCTestCase {
             isCommitted: true,
             hasThread: false,
             threadContent: nil,
-            isLoading: false
+            isLoading: false,
+            errorMessage: nil
         )
 
         let data3 = MarginNoteData(
@@ -334,11 +336,26 @@ final class AnnotationsTests: XCTestCase {
             isCommitted: true,
             hasThread: false,
             threadContent: nil,
-            isLoading: false
+            isLoading: false,
+            errorMessage: nil
+        )
+
+        // Same payload but a different error state must not compare equal —
+        // the WebView only re-renders margin notes when `lastMarginNotes`
+        // differs, so error transitions have to register.
+        let data4 = MarginNoteData(
+            highlightId: "123",
+            previewText: "Preview",
+            isCommitted: true,
+            hasThread: false,
+            threadContent: nil,
+            isLoading: false,
+            errorMessage: "Provider unavailable"
         )
 
         XCTAssertEqual(data1, data2)
         XCTAssertNotEqual(data1, data3)
+        XCTAssertNotEqual(data1, data4)
     }
 
     func testMarginNoteDataCodable() throws {
@@ -348,7 +365,8 @@ final class AnnotationsTests: XCTestCase {
             isCommitted: true,
             hasThread: true,
             threadContent: "<div>Thread HTML</div>",
-            isLoading: false
+            isLoading: false,
+            errorMessage: "Rate limited"
         )
 
         let encoder = JSONEncoder()

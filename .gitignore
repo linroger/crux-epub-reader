@@ -38,3 +38,7 @@ Crux.app/
 Screenshots/logs/
 .claude/data/
 logs/
+
+# claude-mem drops per-directory memory indexes next to the code; they're
+# tooling state, not source (also excluded from app resources in project.yml).
+Shared/**/CLAUDE.md

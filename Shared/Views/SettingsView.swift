@@ -82,7 +82,15 @@ struct GeneralSettingsView: View {
             Section {
                 Picker("Theme", selection: Binding(
                     get: { AppTheme(rawValue: appSettings.theme) ?? .system },
-                    set: { appSettings.theme = $0.rawValue; save() }
+                    set: { theme in
+                        appSettings.theme = theme.rawValue
+                        // Selecting a theme adopts its page palette too —
+                        // keeps this picker, the reader's Aa popover, and
+                        // the Reader-settings preset grid all in agreement.
+                        appSettings.backgroundColor = theme.backgroundColor
+                        appSettings.textColor = theme.textColor
+                        save()
+                    }
                 )) {
                     ForEach(AppTheme.allCases) { theme in
                         Text(theme.displayName).tag(theme)
@@ -1101,12 +1109,23 @@ struct ReaderSettingsView: View {
                 HStack {
                     Text("Font Family")
                     Spacer()
-                    TextField("System", text: Binding(
+                    // Curated reading typefaces (same list as the reader's
+                    // Aa popover). A legacy free-typed name still renders —
+                    // ReaderResources.fontStack falls back to quoting it —
+                    // and shows here as "Custom" until a preset is picked.
+                    Picker("Font Family", selection: Binding(
                         get: { appSettings.fontFamily },
                         set: { appSettings.fontFamily = $0; save() }
-                    ))
+                    )) {
+                        ForEach(ReaderResources.readingFonts) { font in
+                            Text(font.displayName).tag(font.storedValue)
+                        }
+                        if !ReaderResources.readingFonts.contains(where: { $0.storedValue == appSettings.fontFamily }) {
+                            Text("Custom (\(appSettings.fontFamily))").tag(appSettings.fontFamily)
+                        }
+                    }
+                    .labelsHidden()
                     .frame(width: 180)
-                    .textFieldStyle(.roundedBorder)
                 }
 
                 Divider()
@@ -1226,9 +1245,14 @@ struct ReaderSettingsView: View {
                         .foregroundStyle(.secondary)
 
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 8) {
-                        ForEach(ThemePreset.allCases) { theme in
+                        // Same unified theme model as the reader's Aa
+                        // popover: picking a preset sets the theme and
+                        // adopts its palette.
+                        ForEach(AppTheme.allCases) { theme in
                             Button {
-                                theme.apply(to: appSettings)
+                                appSettings.theme = theme.rawValue
+                                appSettings.backgroundColor = theme.backgroundColor
+                                appSettings.textColor = theme.textColor
                                 save()
                             } label: {
                                 VStack(spacing: 4) {
@@ -1245,7 +1269,7 @@ struct ReaderSettingsView: View {
                                                 .font(.caption)
                                         )
 
-                                    Text(theme.label)
+                                    Text(theme.displayName)
                                         .font(.caption2)
                                         .foregroundStyle(.primary)
                                 }
@@ -1253,7 +1277,7 @@ struct ReaderSettingsView: View {
                             }
                             .buttonStyle(.plain)
                             .padding(8)
-                            .background(theme.matches(appSettings) ? Color.accentColor.opacity(0.1) : Color.clear)
+                            .background(appSettings.theme == theme.rawValue ? Color.accentColor.opacity(0.1) : Color.clear)
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                         }
                     }
@@ -1278,6 +1302,11 @@ struct ReaderSettingsView: View {
             Section {
                 Button("Reset to Defaults") {
                     appSettings.resetReaderAppearance()
+                    // Also drop back to the System theme — resetting the
+                    // page colors to factory white/black while keeping,
+                    // say, Sepia active would emit them as overrides on
+                    // top of the sepia palette.
+                    appSettings.theme = AppTheme.system.rawValue
                     save()
                 }
             }
@@ -1510,49 +1539,6 @@ enum FontSizePreset: CaseIterable, Identifiable {
     }
 }
 
-// MARK: - Theme Presets
-
-enum ThemePreset: CaseIterable, Identifiable {
-    case light
-    case sepia
-    case dark
-    case highContrast
-
-    var id: String { label }
-
-    var label: String {
-        switch self {
-        case .light: return "Light"
-        case .sepia: return "Sepia"
-        case .dark: return "Dark"
-        case .highContrast: return "High Contrast"
-        }
-    }
-
-    var backgroundColor: String {
-        switch self {
-        case .light: return "#FFFFFF"
-        case .sepia: return "#F4ECD8"
-        case .dark: return "#1C1C1E"
-        case .highContrast: return "#000000"
-        }
-    }
-
-    var textColor: String {
-        switch self {
-        case .light: return "#000000"
-        case .sepia: return "#5B4636"
-        case .dark: return "#EBEBF5"
-        case .highContrast: return "#FFFFFF"
-        }
-    }
-
-    func apply(to settings: AppSettings) {
-        settings.backgroundColor = backgroundColor
-        settings.textColor = textColor
-    }
-
-    func matches(_ settings: AppSettings) -> Bool {
-        settings.backgroundColor == backgroundColor && settings.textColor == textColor
-    }
-}
+// ThemePreset was a second, divergent theme system (reader page colors
+// only). It's been folded into AppTheme, which now carries the full reader
+// palette — see AppSettings.swift and ReaderAppearanceView.swift.

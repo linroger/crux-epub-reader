@@ -58,6 +58,11 @@ struct ReaderView: View {
     @State private var chapterQuestion = ""
     /// Backs the sheet for typing a free-form chapter-scope question.
     @State private var showChapterAskSheet = false
+    /// Backs the "Aa" appearance popover (theme, font, size, spacing,
+    /// margins). Changes persist to AppSettings and restyle the live page
+    /// via the custom-CSS swap in `EPUBWebViewRepresentable` — no reload,
+    /// no lost reading position.
+    @State private var showAppearance = false
 
     /// Passage routed into the AI Inspector for annotation. On macOS the
     /// inspector is only used for chapter-scope analyses and viewing
@@ -354,48 +359,58 @@ struct ReaderView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
-            // Navigation bar
+            // Navigation bar — chapter title with a compact progress
+            // readout and a brand-gradient progress capsule, framed by
+            // larger prev/next targets.
             HStack(spacing: 16) {
                 Button {
                     navigateToChapter(currentChapterIndex - 1)
                 } label: {
                     Image(systemName: "chevron.left")
+                        .font(.system(size: 14, weight: .semibold))
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.borderless)
                 .disabled(currentChapterIndex == 0)
+                .help("Previous chapter (⌘[)")
                 .accessibilityIdentifier("previousChapter")
 
                 Spacer()
 
                 // Position indicator
-                VStack(spacing: 2) {
+                VStack(spacing: 4) {
                     if let chapter = currentChapter {
                         Text(chapter.title)
-                            .font(.caption)
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(.primary)
                             .lineLimit(1)
                             .accessibilityIdentifier("chapterTitle")
                     }
                     HStack(spacing: 8) {
                         Text("Ch \(currentChapterIndex + 1)/\(book.chapters.count)")
-                            .font(.caption2)
+                            .font(.caption2.monospacedDigit())
                             .foregroundStyle(.secondary)
                             .accessibilityIdentifier("chapterPosition")
-                        Text("•")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
+
                         Text("\(chapterPercentage)% in chapter")
-                            .font(.caption2)
+                            .font(.caption2.monospacedDigit())
                             .foregroundStyle(.secondary)
                             .accessibilityIdentifier("chapterPercentage")
-                        Text("•")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                        Text("\(overallPercentage)% overall")
-                            .font(.caption2)
+
+                        CruxProgressBar(fraction: bookProgress)
+                            .frame(width: 110, height: 3)
+                            .help("Progress through the whole book")
+                            .accessibilityHidden(true)
+
+                        Text("\(overallPercentage)%")
+                            .font(.caption2.monospacedDigit())
                             .foregroundStyle(.secondary)
+                            .help("Progress through the whole book")
                             .accessibilityIdentifier("overallPercentage")
                     }
                 }
+                .frame(maxWidth: 420)
                 .accessibilityIdentifier("positionIndicator")
 
                 Spacer()
@@ -404,11 +419,17 @@ struct ReaderView: View {
                     navigateToChapter(currentChapterIndex + 1)
                 } label: {
                     Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.borderless)
                 .disabled(currentChapterIndex >= book.chapters.count - 1)
+                .help("Next chapter (⌘])")
                 .accessibilityIdentifier("nextChapter")
             }
-            .padding()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
             .background(.bar)
             .accessibilityIdentifier("navigationBar")
 
@@ -468,6 +489,19 @@ struct ReaderView: View {
                     Label("Highlights", systemImage: "highlighter")
                 }
                 .help("View highlights in this book")
+
+                // Appearance — Books-style "Aa" popover with theme, font,
+                // and layout controls that restyle the page live.
+                Button {
+                    showAppearance.toggle()
+                } label: {
+                    Label("Appearance", systemImage: "textformat.size")
+                }
+                .help("Reading appearance: theme, font, and layout")
+                .accessibilityIdentifier("readerAppearance")
+                .popover(isPresented: $showAppearance, arrowEdge: .bottom) {
+                    ReaderAppearanceView()
+                }
 
                 // Ask AI — chapter-scope quick actions. The presets fan out
                 // into the AI inspector, where streaming + cancel + the
@@ -631,6 +665,15 @@ struct ReaderView: View {
                 annotations: annotations
             )
         }
+        #if os(iOS)
+        // On macOS the appearance controls anchor to their toolbar button as
+        // a popover; iOS presents the same view as a half-height sheet.
+        .sheet(isPresented: $showAppearance) {
+            ReaderAppearanceView()
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+        #endif
         .alert("Add Bookmark", isPresented: $showAddBookmark) {
             TextField("Note (optional)", text: $bookmarkNote)
             Button("Cancel", role: .cancel) {
@@ -926,6 +969,12 @@ struct ReaderView: View {
 
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
+                Button {
+                    showAppearance = true
+                } label: {
+                    Label("Appearance…", systemImage: "textformat.size")
+                }
+
                 Button {
                     searchState.isSearchActive = true
                 } label: {
@@ -1836,6 +1885,7 @@ struct EPUBWebView: View {
             lineHeight: appSettings.lineHeight,
             paragraphSpacing: appSettings.paragraphSpacing,
             marginWidth: appSettings.marginWidth,
+            theme: AppTheme(rawValue: appSettings.theme) ?? .system,
             backgroundColor: appSettings.backgroundColor,
             textColor: appSettings.textColor
         )

@@ -1456,14 +1456,16 @@ struct BatchImportItem: Identifiable, Equatable {
 
 struct LibrarySearchBar: View {
     @Binding var query: String
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(isFocused ? Color.cruxAccent : .secondary)
 
-            TextField("Search library...", text: $query)
+            TextField("Search library…", text: $query)
                 .textFieldStyle(.plain)
+                .focused($isFocused)
 
             if !query.isEmpty {
                 Button {
@@ -1473,12 +1475,20 @@ struct LibrarySearchBar: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.quaternary)
-        .cornerRadius(8)
+        .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            // Visible focus ring in the brand accent — the old bar gave no
+            // cue at all that it had keyboard focus.
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(isFocused ? Color.cruxAccent.opacity(0.6) : Color.primary.opacity(0.08),
+                              lineWidth: 1)
+        )
+        .animation(.easeInOut(duration: 0.15), value: isFocused)
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
     }

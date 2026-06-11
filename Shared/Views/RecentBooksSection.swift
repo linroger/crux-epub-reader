@@ -12,7 +12,7 @@ struct RecentBooksSection: View {
             HStack {
                 Image(systemName: "clock.arrow.circlepath")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.cruxAccent)
 
                 Text("Continue Reading")
                     .font(.system(size: 18, weight: .semibold))
@@ -61,6 +61,10 @@ struct RecentBookCard: View {
                         size: CGSize(width: 120, height: 180),
                         cornerRadius: 8
                     )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+                    )
 
                     // Info button overlay (show on hover)
                     if isHovering {
@@ -85,17 +89,18 @@ struct RecentBookCard: View {
                         }
                     }
 
-                    // Progress bar at bottom
+                    // Progress bar at bottom — brand gradient over a dark
+                    // scrim so it reads on any cover art.
                     VStack {
                         Spacer()
                         GeometryReader { geometry in
                             ZStack(alignment: .leading) {
                                 Rectangle()
-                                    .fill(.black.opacity(0.3))
+                                    .fill(.black.opacity(0.35))
                                     .frame(height: 4)
 
                                 Rectangle()
-                                    .fill(.blue)
+                                    .fill(LinearGradient.cruxProgress)
                                     .frame(width: geometry.size.width * book.progress, height: 4)
                             }
                         }
@@ -126,7 +131,7 @@ struct RecentBookCard: View {
                     // Progress percentage
                     Text("\(Int(book.progress * 100))% complete")
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.cruxAccent)
                         .frame(width: 120, alignment: .leading)
                 }
             }

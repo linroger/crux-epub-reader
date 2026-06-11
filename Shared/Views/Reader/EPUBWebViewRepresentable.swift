@@ -93,6 +93,10 @@ struct EPUBWebViewRepresentable: PlatformViewRepresentable {
         }
 
         context.coordinator.lastLoadedHTML = html
+        // Record the CSS we just baked into the page. Leaving this nil made
+        // the first update pass see "CSS changed" and reload the chapter a
+        // second time — every chapter open paid a double load.
+        context.coordinator.lastCustomCSS = customCSS
         context.coordinator.pendingHighlights = highlights
         context.coordinator.pendingMarginNotes = marginNotes
         context.coordinator.webView = webView
@@ -101,10 +105,10 @@ struct EPUBWebViewRepresentable: PlatformViewRepresentable {
     }
 
     private func updateWebView(_ webView: WKWebView, context: Context) {
-        // Only reload if the HTML content actually changed or if customCSS changed
-        let cssChanged = context.coordinator.lastCustomCSS != customCSS
-
-        if context.coordinator.lastLoadedHTML != html || cssChanged {
+        // Reload only when the chapter HTML itself changed. Appearance-only
+        // changes (theme, font, margins…) are swapped into the live page's
+        // <style id="crux-custom-css"> so the scroll position survives.
+        if context.coordinator.lastLoadedHTML != html {
             if let styledHTML = ReaderResources.buildHTML(content: html, customCSS: customCSS),
                let baseURL = ReaderResources.baseURL {
                 webView.loadHTMLString(styledHTML, baseURL: baseURL)
@@ -114,6 +118,9 @@ struct EPUBWebViewRepresentable: PlatformViewRepresentable {
             context.coordinator.pendingHighlights = highlights
             context.coordinator.pendingMarginNotes = marginNotes
             context.coordinator.highlightsApplied = []
+        } else if context.coordinator.lastCustomCSS != customCSS {
+            context.coordinator.applyCustomCSS(customCSS ?? "", to: webView)
+            context.coordinator.lastCustomCSS = customCSS
         } else if Set(context.coordinator.highlightsApplied) != Set(highlights.compactMap { $0.cfiRange != nil ? $0.id : nil }) {
             // Highlights changed but HTML didn't - apply new highlights
             context.coordinator.pendingHighlights = highlights
@@ -223,6 +230,45 @@ class WebViewCoordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler
                 self?.onContentLoaded?()
             }
         }
+    }
+
+    /// Swap the page's appearance stylesheet in place. The custom CSS lives
+    /// in `<style id="crux-custom-css">` (injected by
+    /// `ReaderResources.buildHTML`), so replacing its text restyles the live
+    /// page — theme, font, size, margins — without a reload, keeping the
+    /// scroll position and any applied highlights. Margin notes are reflowed
+    /// afterwards because font/margin changes move their anchor highlights.
+    func applyCustomCSS(_ css: String, to webView: WKWebView) {
+        guard let cssLiteral = Self.javaScriptStringLiteral(css) else {
+            AppLog.reader.error("applyCustomCSS: could not encode CSS for JS injection")
+            return
+        }
+        let js = """
+        (function() {
+            var el = document.getElementById('crux-custom-css');
+            if (!el) {
+                el = document.createElement('style');
+                el.id = 'crux-custom-css';
+                document.head.appendChild(el);
+            }
+            el.textContent = \(cssLiteral);
+            if (window.CruxMarginNotes) {
+                requestAnimationFrame(function() { CruxMarginNotes.reflow(); });
+            }
+        })();
+        """
+        webView.evaluateJavaScript(js, completionHandler: nil)
+    }
+
+    /// Encode an arbitrary string as a JavaScript string literal (handles
+    /// quotes, backslashes, newlines, and unicode) via JSON.
+    static func javaScriptStringLiteral(_ string: String) -> String? {
+        guard let data = try? JSONEncoder().encode([string]),
+              let array = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        // Encoded as a one-element array — strip the brackets.
+        return String(array.dropFirst().dropLast())
     }
 
     func applyHighlights(_ highlights: [Highlight], to webView: WKWebView, completion: (() -> Void)? = nil) {

@@ -63,6 +63,7 @@ struct CruxApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .tint(.cruxAccent)
                 .environment(appState)
                 .environment(providerManager)
                 .task {
@@ -143,6 +144,7 @@ struct CruxApp: App {
         // Notes window
         WindowGroup(id: "notes") {
             NotesView()
+                .tint(.cruxAccent)
                 .modelContainer(modelContainer)
         }
         .defaultSize(width: 900, height: 600)
@@ -150,6 +152,7 @@ struct CruxApp: App {
         // Statistics window
         WindowGroup(id: "statistics") {
             StatisticsView()
+                .tint(.cruxAccent)
                 .modelContainer(modelContainer)
         }
         .defaultSize(width: 700, height: 600)
@@ -157,6 +160,7 @@ struct CruxApp: App {
         // Reading goals window
         WindowGroup(id: "reading-goals") {
             ReadingGoalsView()
+                .tint(.cruxAccent)
                 .modelContainer(modelContainer)
         }
         .defaultSize(width: 600, height: 500)
@@ -164,6 +168,7 @@ struct CruxApp: App {
         // Streaks window
         WindowGroup(id: "streaks") {
             StreaksView()
+                .tint(.cruxAccent)
                 .modelContainer(modelContainer)
         }
         .defaultSize(width: 700, height: 600)
@@ -171,6 +176,7 @@ struct CruxApp: App {
         // Keyboard shortcuts window
         WindowGroup(id: "keyboard-shortcuts", for: Bool.self) { _ in
             KeyboardShortcutsView()
+                .tint(.cruxAccent)
         }
         .defaultSize(width: 600, height: 500)
         .commandsRemoved()
@@ -182,6 +188,7 @@ struct CruxApp: App {
         WindowGroup(id: "book-reader", for: UUID.self) { $bookId in
             if let bookId {
                 BookWindowContent(bookId: bookId)
+                    .tint(.cruxAccent)
                     .environment(appState)
                     .environment(providerManager)
             } else {
@@ -195,6 +202,7 @@ struct CruxApp: App {
         #if os(macOS)
         Settings {
             SettingsView()
+                .tint(.cruxAccent)
                 .environment(providerManager)
                 .modelContainer(modelContainer)
         }

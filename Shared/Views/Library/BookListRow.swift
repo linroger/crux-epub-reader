@@ -30,6 +30,11 @@ struct BookListRow: View {
                 data: book.coverImageData,
                 size: CGSize(width: 40, height: 60)
             )
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+            )
+            .shadow(color: .black.opacity(0.15), radius: 2, x: 0, y: 1)
             .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 3) {
@@ -65,7 +70,12 @@ struct BookListRow: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(isHovered ? Color.primary.opacity(0.03) : Color.clear)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isHovered ? Color.cruxAccentWash : Color.clear)
+                .padding(.horizontal, 6)
+        )
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
         .onHover { hovering in
             isHovered = hovering
         }
@@ -118,17 +128,8 @@ struct ProgressLine: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.primary.opacity(0.08))
-
-                    Capsule()
-                        .fill(book.isFinished ? Color.green : Color.primary.opacity(0.4))
-                        .frame(width: max(0, geo.size.width * progressFraction))
-                }
-            }
-            .frame(height: 4)
+            CruxProgressBar(fraction: progressFraction, isFinished: book.isFinished)
+                .frame(height: 4)
 
             if book.totalChapters > 0 {
                 Text(chapterText)

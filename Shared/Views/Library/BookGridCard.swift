@@ -25,12 +25,20 @@ struct BookGridCard: View {
                         bookId: book.id,
                         data: book.coverImageData,
                         size: CGSize(width: geo.size.width, height: geo.size.width / 0.7),
-                        cornerRadius: 6
+                        cornerRadius: CruxMetrics.coverRadius
                     )
-                    .shadow(color: .black.opacity(isHovered ? 0.18 : 0.12),
-                            radius: isHovered ? 14 : 8,
+                    // Hairline edge keeps light covers from melting into
+                    // the background; the shadow deepens and the cover
+                    // lifts on hover for a tactile pick-me-up cue.
+                    .overlay(
+                        RoundedRectangle(cornerRadius: CruxMetrics.coverRadius)
+                            .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+                    )
+                    .shadow(color: .black.opacity(isHovered ? 0.22 : 0.12),
+                            radius: isHovered ? 16 : 8,
                             x: 0,
-                            y: isHovered ? 8 : 4)
+                            y: isHovered ? 10 : 4)
+                    .offset(y: isHovered ? -2 : 0)
                 }
                 .aspectRatio(0.7, contentMode: .fit)
                 .accessibilityHidden(true)
@@ -83,15 +91,12 @@ struct BookGridCard: View {
 
                 if book.totalChapters > 0 {
                     HStack(spacing: 6) {
-                        ProgressView(value: progressFraction)
-                            .progressViewStyle(.linear)
-                            .tint(book.isFinished ? .green : .accentColor)
+                        CruxProgressBar(fraction: progressFraction, isFinished: book.isFinished)
                             .frame(height: 4)
-                            .clipShape(Capsule())
 
                         Text(book.isFinished ? "Done" : "\(Int(progressFraction * 100))%")
                             .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(book.isFinished ? .green : .secondary)
+                            .foregroundStyle(book.isFinished ? AnyShapeStyle(.green) : AnyShapeStyle(.secondary))
                             .monospacedDigit()
                     }
                     .padding(.top, 2)
@@ -101,7 +106,7 @@ struct BookGridCard: View {
                     HStack(spacing: 8) {
                         Label("\(stats.highlightCount)", systemImage: "highlighter")
                             .font(.caption2)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.cruxAccent)
 
                         if stats.threadCount > 0 {
                             Label("\(stats.threadCount)", systemImage: "bubble.left.and.bubble.right")
@@ -121,8 +126,15 @@ struct BookGridCard: View {
             .padding(.horizontal, 2)
         }
         .padding(10)
-        .background(isHovered ? Color.secondary.opacity(0.07) : Color.clear,
-                    in: RoundedRectangle(cornerRadius: 10))
+        .background(
+            RoundedRectangle(cornerRadius: CruxMetrics.cardRadius)
+                .fill(isHovered ? Color.cruxAccentWash : Color.clear)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: CruxMetrics.cardRadius)
+                .strokeBorder(isHovered ? Color.cruxAccent.opacity(0.25) : Color.clear,
+                              lineWidth: 1)
+        )
         .scaleEffect(isHovered ? 1.015 : 1.0)
         .animation(.easeInOut(duration: 0.2), value: isHovered)
         .onHover { hovering in

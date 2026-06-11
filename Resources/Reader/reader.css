@@ -33,6 +33,9 @@ html, body {
     padding: 0;
     background: var(--crux-bg);
     -webkit-font-smoothing: antialiased;
+    /* Appearance changes (Aa popover) swap CSS variables on the live page —
+       fade between palettes instead of snapping. */
+    transition: background 0.25s ease;
 }
 
 /* Layout */
@@ -54,6 +57,7 @@ html, body {
     color: var(--crux-text);
     text-rendering: optimizeLegibility;
     font-feature-settings: "kern" 1, "liga" 1;
+    transition: color 0.25s ease;
 }
 
 .crux-margin {
